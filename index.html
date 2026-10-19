@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#1b2130">
+<title>PPA Clock</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{--red:#d3202a;--ink:#1b2130;--ink2:#262d3f;--line:#394258;--fg:#f4f6fa;--muted:#a9b2c3;--ok:#1f9d55;--bad:#d3202a;--warn:#e0a100}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--ink);color:var(--fg);font:16px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow:hidden;user-select:none}
+body{display:flex;flex-direction:column}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;background:linear-gradient(90deg,#1b2130 0%,#2a1c27 60%,#7d1a22 100%);border-bottom:3px solid var(--red)}
+.brand b{display:block;font-size:22px;letter-spacing:.06em}.brand span{font-size:12px;color:var(--muted);letter-spacing:.12em}
+.clock{text-align:right}.clock b{display:block;font:700 44px/1 ui-monospace,Consolas,monospace}.clock span{font-size:13px;color:var(--muted)}
+.ban{background:var(--red);padding:8px 16px;text-align:center;font-weight:700;letter-spacing:.04em}.ban small{font-weight:400;opacity:.9;margin-left:8px}
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;gap:14px;min-height:0;position:relative}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:min(900px,100%)}
+.btn{border:0;border-radius:20px;padding:34px 12px;font-size:34px;font-weight:800;color:#fff;cursor:pointer;text-align:center;box-shadow:0 6px 0 rgba(0,0,0,.35)}
+.btn small{display:block;font-size:15px;font-weight:500;opacity:.9;margin-top:6px}
+.btn:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.in{background:var(--ok)}.out{background:#2b6cb0}
+.ot{grid-column:1/3;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.ot .btn{padding:14px;font-size:20px;background:var(--ink2);border:2px solid var(--line);box-shadow:none}
+.hint{color:var(--muted);text-align:center}.hint b{color:var(--fg);display:block;font-size:20px}
+#cam{display:none;width:min(560px,100%);position:relative;border-radius:18px;overflow:hidden;background:#000;border:3px solid var(--red)}
+#cam video{width:100%;display:block;transform:scaleX(-1)}
+#cam .top{position:absolute;left:0;right:0;top:0;padding:10px 14px;background:linear-gradient(#000a,#0000);font-weight:700}
+#cam .bot{position:absolute;left:0;right:0;bottom:0;padding:10px 14px;background:linear-gradient(#0000,#000b);display:flex;justify-content:space-between;align-items:center}
+#cam .bot button{background:#fff2;border:1px solid #fff6;color:#fff;border-radius:10px;padding:8px 14px;font-size:15px}
+#res{display:none;position:absolute;inset:14px;border-radius:22px;padding:28px;text-align:center;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:5}
+#res h1{margin:0;font-size:42px}#res .who{font-size:30px;font-weight:700}#res .sub{font-size:19px;opacity:.95}#res .flag{margin-top:10px;background:#0006;padding:10px 16px;border-radius:12px;font-size:19px}
+#res button{margin-top:14px;background:#fff;color:#111;border:0;border-radius:12px;padding:14px 22px;font-size:20px;font-weight:700}
+.r-in{background:var(--ok)}.r-out{background:#2b6cb0}.r-bad{background:var(--bad)}.r-warn{background:var(--warn);color:#1a1a1a}.r-wait{background:var(--ink2);border:2px solid var(--line)}
+footer{display:flex;justify-content:space-between;padding:8px 18px;font-size:13px;color:var(--muted);border-top:1px solid var(--line)}
+#nokey{display:none;background:#fff;color:#111;border-radius:16px;padding:22px;max-width:560px}
+.admin #adm{display:block}#adm{display:none;position:absolute;right:10px;bottom:34px;width:min(430px,94%);max-height:55%;overflow:auto;background:#0d1220f2;border:1px solid var(--line);border-radius:14px;padding:12px;font-size:14px;z-index:9}
+#adm h3{margin:6px 0;font-size:15px}#adm button,#adm select{background:var(--ink2);color:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin:2px}
+#adm table{width:100%;border-collapse:collapse}#adm td{padding:3px 4px;border-bottom:1px solid var(--line)}
+.dim #wrap{opacity:.12}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><b>POWER PACK AFRICA</b><span>STAFF CLOCK</span></div>
+  <div class="clock"><b id="clock">--:--:--</b><span id="date"></span></div>
+</header>
+<div class="ban">STRICTLY PROHIBITED <small>Clocking in or out for another person</small></div>
+<main id="wrap">
+  <div id="nokey"><h2 style="margin-top:0">This tablet is not set up</h2><p>Please ask HR or Alan for the tablet setup link and open it once on this tablet. You only need to do this once.</p></div>
+  <div class="btns" id="btns">
+    <button class="btn in" id="bIn">Clock in<small id="inSub"></small></button>
+    <button class="btn out" id="bOut">Clock out<small>Thank you &middot; see you next shift</small></button>
+    <div class="ot"><button class="btn" id="bOtIn">OT in<small>Overtime start &middot; needs approval</small></button><button class="btn" id="bOtOut">OT out<small>Overtime end &middot; needs approval</small></button></div>
+  </div>
+  <div class="hint" id="hint"><b>Tap Clock in or Clock out</b>Then show your card to the camera. No card? Look at the camera.</div>
+  <div id="cam"><div class="top" id="camTop">Show your card</div><video id="video" playsinline muted autoplay></video><div class="bot"><span id="camMsg"></span><button id="bCancel">Cancel</button></div></div>
+  <div id="res"></div>
+  <div id="adm">
+    <h3>Tablet settings <small id="ver"></small></h3>
+    <div>Camera <select id="camSel"></select> <button id="bSync">Sync now</button></div>
+    <h3>Faces <button id="bEnrol">Enrol a face</button></h3>
+    <div id="faces"></div>
+    <h3>Recent on this tablet</h3>
+    <table id="recent"></table>
+  </div>
+</main>
+<footer><span id="net">&bull; Starting</span><span>Face recognition is optional: your card always works.</span></footer>
+<canvas id="cv" width="640" height="480" hidden></canvas>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
+<script>
+(function () {
+  'use strict';
+  var APP_VER = '2026-10-19-1';
+  var API = 'https://script.google.com/macros/s/AKfycbzqY-Si-Drz7B-MAsT0hWSx8NWF6hUU46ibuscemGgY6-Yzn2uvHhXAkkpHb3YpDYpr/exec';
+  var MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/';
+  var CARD_RE = /^PPA\d{6}-[A-Z2-9]{4}$/;
+  var P = 'ppa_clock_';
+  var DUP_MS = 60000, STALE_MS = 16 * 3600 * 1000, SYNC_MAX = 12 * 3600 * 1000;
+  var MODE_MS = 8000, FACE_MODE_MS = 12000, CAM_KEEP_MS = 15000, SWITCH_MS = 5000, SLEEP_MS = 60000, NET_MS = 25000;
+  var FACE_THR = 0.4, FACE_GAP = 0.12;
+
+  function $(id) { return document.getElementById(id); }
+  function lsGet(k, d) { try { var v = localStorage.getItem(P + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
+  function lsSet(k, v) { try { localStorage.setItem(P + k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function dayKey(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function hms(d) { return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
+  function uid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  // ---- tablet key: first time from the setup link  #k=KEY ----
+  var m = /[#&]k=([A-Za-z0-9]+)/.exec(location.hash);
+  if (m) { lsSet('key', m[1]); history.replaceState(null, '', location.pathname + location.search); }
+  var KEY = lsGet('key', '');
+  var DEVICE = lsGet('device', ''); if (!DEVICE) { DEVICE = 'tablet-' + Math.random().toString(36).slice(2, 7); lsSet('device', DEVICE); }
+  if (/[?&]setup\b/.test(location.search)) document.body.classList.add('admin');
+  if (!KEY) { $('nokey').style.display = 'block'; $('btns').style.display = 'none'; $('hint').style.display = 'none'; }
+  $('ver').textContent = APP_VER;
+
+  // ---- backend ----
+  function post(body) {
+    body.key = KEY; body.device = DEVICE; body.ver = APP_VER;
+    var ctl = window.AbortController ? new AbortController() : null;
+    var t = setTimeout(function () { if (ctl) ctl.abort(); }, NET_MS);
+    return fetch(API, { method: 'POST', body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined, redirect: 'follow' })
+      .then(function (r) { clearTimeout(t); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .catch(function (e) { clearTimeout(t); e.network = true; throw e; });
+  }
+  function net(ok) {
+    var n = queue().length;
+    $('net').textContent = ok ? '● Online' + (n ? ' · ' + n + ' uploading' : '') : '● No internet · ' + n + ' record(s) saved on this tablet, will upload automatically';
+    $('net').style.color = ok ? '' : '#ffcc66';
+  }
+
+  // ---- sync: valid cards (hash), last record per person, pepper, faces ----
+  function sync() {
+    if (!KEY) return Promise.resolve();
+    return post({ action: 'sync' }).then(function (r) {
+      if (!r.ok) { if (r.code === 'KEY') { $('nokey').style.display = 'block'; } return; }
+      net(true);
+      lsSet('sync', { cards: r.cards, last: r.last || {}, pepper: r.pepper, at: Date.now() });
+      if (String(r.faceVer) !== String(faceDb().ver)) return loadFaces(r.faceVer);
+    }).then(flush).catch(function () { net(false); });
+  }
+  function loadFaces() {
+    return post({ action: 'faces' }).then(function (r) { if (r.ok) { lsSet('faces', { ver: r.ver, faces: r.faces || {} }); renderAdmin(); } });
+  }
+  function faceDb() { var d = lsGet('faces', null); if (!d || typeof d !== 'object') d = {}; if (!d.faces || typeof d.faces !== 'object') d.faces = {}; if (d.ver === undefined) d.ver = ''; return d; }
+
+  // ---- queue (offline safe) ----
+  function queue() { return lsGet('queue', []); }
+  function setQueue(q) { return lsSet('queue', q); }
+  function recent() { return lsGet('recent', []); }
+  function addRecent(o) { var r = recent().filter(function (x) { return x.day === dayKey(new Date()); }); r.push(o); if (r.length > 80) r = r.slice(-80); lsSet('recent', r); }
+  function markRecent(rid, patch) { var r = recent(); r.forEach(function (x) { if (x.rid === rid) for (var k in patch) x[k] = patch[k]; }); lsSet('recent', r); }
+  var flushing = false;
+  function flush() {
+    if (flushing || !KEY) return;
+    var q = queue();
+    if (!q.length) { net(true); return; }
+    var it = q[0];
+    if (it.notBefore && it.notBefore > Date.now()) { setTimeout(flush, it.notBefore - Date.now() + 50); return; }
+    flushing = true;
+    var p = it.uploaded ? Promise.resolve({ ok: true }) : post({ action: 'clock', card: it.card || '', faceId: it.faceId || '', faceD: it.faceD, type: it.type, rid: it.rid, ts: it.ts, offline: !it.live, edited: it.edited || '', ot: !!it.ot });
+    p.then(function (res) {
+      if (!res.ok && res.code !== 'DUP') { markRecent(it.rid, { flag: 'REJECTED: ' + (res.msg || res.code) }); return 'drop'; }
+      if (res.ok) markRecent(it.rid, { name: res.name, flag: res.flag || '', wait: false });
+      var jobs = [];
+      if (it.photo) jobs.push(post({ action: 'photo', rid: it.rid, data: it.photo }));
+      if (it.faceText) jobs.push(post({ action: 'face', rid: it.rid, face: it.faceText }));
+      return Promise.all(jobs).then(function () { return 'drop'; });
+    }).then(function () {
+      var q2 = queue(); if (q2.length && q2[0].rid === it.rid) { q2.shift(); setQueue(q2); }
+      flushing = false; renderAdmin(); flush();
+    }).catch(function () { flushing = false; net(false); });
+  }
+  setInterval(flush, 30000); window.addEventListener('online', function () { flush(); sync(); });
+
+  // ---- time / idle ----
+  var idleAt = 0, lastTouch = Date.now();
+  function tick() {
+    var d = new Date(), h = d.getHours();
+    $('clock').textContent = hms(d);
+    $('date').textContent = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][d.getDay()] + ', ' + dayKey(d);
+    $('inSub').textContent = pad(h) + ':' + pad(d.getMinutes()) + ' · ' + (h >= 5 && h < 12 ? 'Good morning' : h >= 12 && h < 17 ? 'Good afternoon' : 'Good evening');
+    document.body.classList.toggle('dim', !mode && !busy && Date.now() - lastTouch > SLEEP_MS);
+    if (mode && !busy && !enrolling) {
+      var lim = faceSeen ? FACE_MODE_MS : MODE_MS, left = Math.max(0, Math.ceil((lim - (Date.now() - modeAt)) / 1000));
+      if (Date.now() - modeAt > lim) { setMode(null); fail('Not clocked: no card or face detected', 'Please tap Clock in or Clock out and try again'); }
+      else $('camMsg').textContent = (faceSeen ? 'Recognising your face… ' : '') + left + ' s';
+    }
+  }
+  setInterval(tick, 500);
+  ['pointerdown', 'keydown'].forEach(function (e) { document.addEventListener(e, function () { lastTouch = Date.now(); }, true); });
+
+  // ---- sounds / voice ----
+  var actx = null;
+  function beep(f, ms, type) {
+    try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); var o = actx.createOscillator(), g = actx.createGain(); o.type = type || 'sine'; o.frequency.value = f; g.gain.value = 0.15; o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + ms / 1000); } catch (e) { }
+  }
+  function okSound() { beep(880, 120); setTimeout(function () { beep(1175, 160); }, 140); }
+  function badSound() { beep(220, 400, 'square'); }
+  function say(t) { try { var u = new SpeechSynthesisUtterance(t); u.lang = 'en-GB'; u.rate = 0.95; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) { } }
+  function firstName(n) { return String(n || '').split(' ')[0]; }
+
+  // ---- result screen ----
+  var resTimer = null;
+  function show(kind, title, who, sub, flag, action) {
+    var r = $('res'); r.className = 'r-' + kind; r.style.display = 'flex';
+    r.innerHTML = '<h1>' + esc(title) + '</h1>' + (who ? '<div class="who">' + esc(who) + '</div>' : '') + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + (flag ? '<div class="flag">' + esc(flag) + '</div>' : '') + (action ? '<button id="resAct">' + esc(action.label) + '</button>' : '');
+    if (action) $('resAct').onclick = function () { action.fn(); };
+    clearTimeout(resTimer);
+    resTimer = setTimeout(hideResult, action ? action.ms + 6000 : 6000);
+  }
+  function hideResult() { $('res').style.display = 'none'; $('hint').style.display = KEY ? '' : 'none'; }
+  function fail(t, s) { busy = false; badSound(); show('bad', '✖ ' + t, '', s); }
+
+  // ---- camera ----
+  var video = $('video'), cv = $('cv'), cx = cv.getContext('2d', { willReadFrequently: true });
+  var stream = null, mode = null, modeOT = false, modeAt = 0, busy = false, enrolling = false, faceSeen = false, camTimer = 0, scanTimer = 0, faceTimer = 0, camOff = 0;
+  function listCams() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    navigator.mediaDevices.enumerateDevices().then(function (ds) {
+      var sel = $('camSel'), cur = lsGet('cam', ''); sel.innerHTML = '';
+      ds.filter(function (d) { return d.kind === 'videoinput'; }).forEach(function (d, i) { var o = document.createElement('option'); o.value = d.deviceId; o.textContent = d.label || 'Camera ' + (i + 1); if (d.deviceId === cur) o.selected = true; sel.appendChild(o); });
+    }).catch(function () { });
+  }
+  $('camSel').onchange = function () { lsSet('cam', this.value); stopCam(); };
+  function startCam() {
+    clearTimeout(camOff);
+    if (stream) return Promise.resolve();
+    var cam = lsGet('cam', '');
+    var c = { video: cam ? { deviceId: { exact: cam } } : { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false };
+    return navigator.mediaDevices.getUserMedia(c).then(function (s) { stream = s; video.srcObject = s; return video.play(); }).then(listCams);
+  }
+  function stopCam() {
+    clearInterval(scanTimer); clearInterval(faceTimer);
+    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    video.srcObject = null;
+  }
+  function keepCam() { clearTimeout(camOff); camOff = setTimeout(stopCam, CAM_KEEP_MS); }
+  function setMode(t, ot) {
+    mode = t; modeOT = !!ot; faceSeen = false;
+    $('cam').style.display = t ? 'block' : 'none'; $('btns').style.display = t || !KEY ? 'none' : ''; $('hint').style.display = t ? 'none' : (KEY ? '' : 'none');
+    if (t) { modeAt = Date.now(); hideResult(); $('camTop').textContent = (ot ? 'OT ' : '') + (t === 'IN' ? 'Clock in' : 'Clock out') + ' — show your card'; }
+    else { clearInterval(scanTimer); clearInterval(faceTimer); keepCam(); }
+  }
+  function begin(t, ot) {
+    if (busy || !KEY) return;
+    beep(660, 60);
+    setMode(t, ot);
+    startCam().then(function () {
+      modeAt = Date.now();
+      scanTimer = setInterval(scanFrame, 160);
+      faceTimer = setInterval(faceFrame, 700);
+      loadModels();
+    }).catch(function (e) { setMode(null); fail('Camera not available', 'Please allow the camera for this page, or tell HR (' + (e && e.name || 'error') + ')'); });
+  }
+  $('bIn').onclick = function () { begin('IN', false); };
+  $('bOut').onclick = function () { begin('OUT', false); };
+  $('bOtIn').onclick = function () { begin('IN', true); };
+  $('bOtOut').onclick = function () { begin('OUT', true); };
+  $('bCancel').onclick = function () { enrolling = false; setMode(null); };
+
+  function frame(w) {
+    var vw = video.videoWidth, vh = video.videoHeight; if (!vw) return null;
+    cv.width = w; cv.height = Math.round(w * vh / vw); cx.drawImage(video, 0, 0, cv.width, cv.height); return cv;
+  }
+  function takePhoto() {
+    try { var c = document.createElement('canvas'), vw = video.videoWidth, vh = video.videoHeight; if (!vw) return ''; c.width = 320; c.height = Math.round(320 * vh / vw); c.getContext('2d').drawImage(video, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', 0.6); } catch (e) { return ''; }
+  }
+  var lastCode = '', lastCodeAt = 0;
+  function scanFrame() {
+    if (!mode || busy || !stream) return;
+    var c = frame(640); if (!c) return;
+    var img = cx.getImageData(0, 0, c.width, c.height), q = window.jsQR ? jsQR(img.data, c.width, c.height, { inversionAttempts: 'dontInvert' }) : null;
+    if (q && q.data) gotCode(q.data);
+  }
+  function gotCode(raw) {
+    var card = String(raw).trim().toUpperCase();
+    if (enrolling) return enrolCard(card);
+    if (card === lastCode && Date.now() - lastCodeAt < 3000) return;
+    lastCode = card; lastCodeAt = Date.now();
+    clock(card, mode, modeOT);
+  }
+
+  // ---- card checks (local first, then server) ----
+  function sha256(s) {
+    if (!window.crypto || !crypto.subtle || !window.TextEncoder) return Promise.reject(new Error('no crypto'));
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)).then(function (b) { return Array.prototype.map.call(new Uint8Array(b), function (x) { return ('0' + x.toString(16)).slice(-2); }).join(''); });
+  }
+  function lastFor(id, skipRid) {
+    var S = lsGet('sync', null), best = null, l = S && S.last ? S.last[id] : null;
+    if (l) best = { type: l.t, ts: l.ts, time: l.tm };
+    recent().forEach(function (r) { if (r.id !== id || !r.ts || r.rid === skipRid || /^REJECTED/.test(r.flag || '')) return; if (!best || r.ts >= best.ts) best = { type: r.type, ts: r.ts, time: r.time }; });
+    return best;
+  }
+  function flagFor(type, last, ts) {
+    if (type === 'IN') return (last && last.type === 'IN') ? 'NO_OUT' : '';
+    if (!last || last.type === 'OUT' || ts - last.ts > STALE_MS) return 'NO_IN';
+    return '';
+  }
+  var FLAG_TEXT = { NO_OUT: 'Your last Clock In has no Clock Out. Please tell your supervisor.', NO_IN: 'We have no Clock In for you. Please tell your supervisor.' };
+
+  function clock(card, type, ot, faceInfo) {
+    if (!faceInfo && !CARD_RE.test(card)) { fail('Not clocked: invalid card', 'This is not a PPA clock card. Please use your own card or ask HR.'); return; }
+    busy = true;
+    var photo = takePhoto(), rid = uid(), id = faceInfo ? faceInfo.id : card.slice(0, 9);
+    var S = lsGet('sync', null), e = S && S.cards && Date.now() - S.at < SYNC_MAX ? S.cards[id] : null;
+    var fimg = !faceInfo ? faceGrab() : null;
+    setMode(null);
+    if (faceInfo) return localClock('', type, id, e ? e.n : id, photo, rid, ot, faceInfo);
+    if (!e) { if (fimg) faceBackground(fimg, id, rid); return serverClock(card, type, photo, rid, ot); }
+    sha256(S.pepper + ':' + card).then(function (h) {
+      if (fimg) faceBackground(fimg, id, rid);
+      if (h === e.h) localClock(card, type, id, e.n, photo, rid, ot); else serverClock(card, type, photo, rid, ot);
+    }).catch(function () { serverClock(card, type, photo, rid, ot); });
+  }
+  function localClock(card, type, id, name, photo, rid, ot, face) {
+    var ts = Date.now(), last = lastFor(id);
+    if (last && ts - last.ts < DUP_MS) { busy = false; beep(440, 150); show('warn', 'Already clocked', name, 'Your ' + (last.type === 'IN' ? 'Clock In' : 'Clock Out') + ' at ' + last.time + ' is recorded. Scans within 60 seconds are ignored.'); return; }
+    var flag = flagFor(type, last, ts), t = new Date(ts);
+    var item = { rid: rid, card: card, type: type, ts: ts, photo: photo, live: true, ot: ot, notBefore: flag ? ts + SWITCH_MS + 500 : 0 };
+    if (face) { item.faceId = id; item.faceD = face.d; item.faceText = 'FACEID d=' + face.d; }
+    var q = queue(); q.push(item);
+    if (!setQueue(q)) { item.photo = ''; if (!setQueue(q)) { busy = false; fail('Not clocked: tablet storage full', 'Please tell HR.'); return; } }
+    addRecent({ rid: rid, day: dayKey(t), time: hms(t), ts: ts, id: id, name: name, type: type, flag: flag, wait: true, ot: ot });
+    busy = false; flush(); renderAdmin();
+    result(rid, type, name, hms(t), flag, ot, !!face, false);
+  }
+  function serverClock(card, type, photo, rid, ot) {
+    var ts = Date.now(); busy = true;
+    show('wait', 'Saving…', '', 'Please hold on');
+    post({ action: 'clock', card: card, type: type, rid: rid, ts: ts, ot: ot, live: true }).then(function (res) {
+      busy = false; net(true);
+      if (!res.ok) {
+        if (res.code === 'DUP') { beep(440, 150); show('warn', 'Already clocked', res.name || '', 'Your ' + (res.lastType === 'IN' ? 'Clock In' : 'Clock Out') + ' at ' + res.lastTime + ' is recorded. Scans within 60 seconds are ignored.'); return; }
+        var why = { OLDCARD: ['Old card', 'This card was replaced. Please ask HR for your new card.'], INACTIVE: ['Not on the employee list', 'Please ask HR.'], CARD: ['Invalid card', 'This is not a PPA clock card.'], KEY: ['Tablet not set up', 'Please tell HR.'] }[res.code] || ['Save failed', 'Please try again. If it happens again, tell HR.'];
+        fail('Not clocked: ' + why[0], why[1]); return;
+      }
+      var t = new Date(ts);
+      addRecent({ rid: rid, day: dayKey(t), time: res.time, ts: ts, id: res.id, name: res.name, type: res.type, flag: res.flag || '', wait: false, ot: ot });
+      if (photo) { var q = queue(); q.push({ rid: rid, uploaded: true, photo: photo }); setQueue(q); flush(); }
+      renderAdmin(); result(rid, res.type, res.name, res.time, res.flag, ot, false, true);
+    }).catch(function () {
+      // no internet: keep the record on the tablet (card cannot be checked now, the server will check it later)
+      var t = new Date(ts), id = card.slice(0, 9), q = queue();
+      q.push({ rid: rid, card: card, type: type, ts: ts, photo: photo, live: false, ot: ot });
+      if (!setQueue(q)) { busy = false; fail('Not clocked: tablet storage full', 'Please tell HR.'); return; }
+      addRecent({ rid: rid, day: dayKey(t), time: hms(t), ts: ts, id: id, name: id, type: type, flag: '', wait: true, ot: ot });
+      busy = false; net(false); renderAdmin();
+      show('warn', (type === 'IN' ? 'Clock In' : 'Clock Out') + ' saved on this tablet', id, hms(t) + ' · No internet now. It will upload automatically.');
+    });
+  }
+  function result(rid, type, who, time, flag, ot, byFace, fromServer) {
+    var label = (ot ? 'OT ' : '') + (type === 'IN' ? 'Clock In' : 'Clock Out') + (flag ? ' recorded ⚠' : ' ✔');
+    var sub = time + (byFace ? ' · Recognised by face' : '') + (ot ? ' · Overtime needs supervisor approval' : '');
+    if (flag) {
+      badSound(); setTimeout(function () { say((type === 'IN' ? 'Welcome ' : 'Goodbye ') + firstName(who)); }, 400);
+      show('warn', label, who, sub, FLAG_TEXT[flag], { label: 'I meant ' + (type === 'IN' ? 'CLOCK OUT' : 'CLOCK IN'), ms: SWITCH_MS, fn: function () { doSwitch(rid, fromServer); } });
+    } else { okSound(); say((type === 'IN' ? 'Good ' + (new Date().getHours() < 12 ? 'morning ' : new Date().getHours() < 17 ? 'afternoon ' : 'evening ') : 'Thank you ') + firstName(who)); show(type === 'IN' ? 'in' : 'out', label, who, sub); }
+  }
+  var switched = {};
+  function doSwitch(rid, fromServer) {
+    if (switched[rid]) return; switched[rid] = true;
+    var q = queue(), it = null; q.forEach(function (x) { if (x.rid === rid && !x.uploaded) it = x; });
+    if (it) {
+      var t = it.type === 'IN' ? 'OUT' : 'IN'; it.type = t; it.notBefore = 0; it.edited = 'switched by employee on tablet'; setQueue(q);
+      markRecent(rid, { type: t, flag: '' }); flush(); renderAdmin(); show(t === 'IN' ? 'in' : 'out', (t === 'IN' ? 'Clock In' : 'Clock Out') + ' ✔', '', 'Changed. HR can see this change.');
+      return;
+    }
+    post({ action: 'switch', rid: rid }).then(function (r) { if (r.ok) { markRecent(rid, { type: r.type, flag: r.flag || '' }); show(r.type === 'IN' ? 'in' : 'out', (r.type === 'IN' ? 'Clock In' : 'Clock Out') + ' ✔', '', 'Changed. HR can see this change.'); } else show('bad', 'Could not change', '', 'Please tell HR.'); renderAdmin(); }).catch(function () { show('bad', 'No internet', '', 'Please tell HR.'); });
+  }
+
+  // ---- face recognition (optional; the card always works) ----
+  var modelsState = 0;
+  function loadModels() {
+    if (modelsState || !window.faceapi || !Object.keys(faceDb().faces).length && !enrolling) return Promise.resolve();
+    modelsState = 1;
+    return Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL), faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL), faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)])
+      .then(function () { modelsState = 2; }).catch(function () { modelsState = 0; });
+  }
+  function detect(input) {
+    return faceapi.detectSingleFace(input, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })).withFaceLandmarks(true).withFaceDescriptor();
+  }
+  function dist(a, b) { var s = 0; for (var i = 0; i < a.length; i++) { var d = a[i] - b[i]; s += d * d; } return Math.sqrt(s); }
+  function minDist(q, list) { var m = 9; list.forEach(function (d) { var x = dist(q, d); if (x < m) m = x; }); return m; }
+  var faceBusy = false;
+  function faceFrame() {
+    if (!mode || busy || enrolling || faceBusy || modelsState !== 2 || !stream) return;
+    var F = faceDb().faces; if (!Object.keys(F).length) return;
+    var c = faceGrab(); if (!c) return;      // own copy: the QR scan reuses the shared canvas while this runs
+    faceBusy = true;
+    detect(c).then(function (r) {
+      faceBusy = false; if (!mode || busy) return;
+      if (!r) { faceSeen = false; return; }
+      faceSeen = true;
+      var best = null, second = null;
+      Object.keys(F).forEach(function (k) { var d = minDist(r.descriptor, F[k].d), o = { id: k, n: F[k].n, d: d }; if (!best || d < best.d) { second = best; best = o; } else if (!second || d < second.d) second = o; });
+      if (best && best.d <= FACE_THR && (!second || second.d - best.d >= FACE_GAP)) clock('', mode, modeOT, { id: best.id, d: +best.d.toFixed(3) });
+    }).catch(function () { faceBusy = false; });
+  }
+  function faceGrab() { var c = frame(480); if (!c) return null; var o = document.createElement('canvas'); o.width = c.width; o.height = c.height; o.getContext('2d').drawImage(c, 0, 0); return o; }
+  function faceBackground(canvas, id, rid) {   // audit only: does the face in front of the camera match the card owner?
+    var F = faceDb().faces[id]; if (!F || !window.faceapi) return;
+    loadModels().then(function () { if (modelsState !== 2) return; return detect(canvas); }).then(function (r) {
+      var text = !r ? 'NOFACE' : (function () { var d = minDist(r.descriptor, F.d); return (d <= 0.5 ? 'MATCH' : 'NOMATCH') + ' d=' + d.toFixed(3); })();
+      var q = queue(), hit = false; q.forEach(function (x) { if (x.rid === rid) { x.faceText = text; hit = true; } });
+      if (hit) setQueue(q); else post({ action: 'face', rid: rid, face: text }).catch(function () { });
+    }).catch(function () { });
+  }
+
+  // ---- admin: enrol faces ----
+  var enrolId = '';
+  $('bEnrol').onclick = function () {
+    if (enrolling) return;
+    enrolling = true; setMode('IN', false); $('camTop').textContent = 'Enrol a face — scan the employee card';
+    startCam().then(function () { scanTimer = setInterval(scanFrame, 160); return loadModels(); }).catch(function () { enrolling = false; setMode(null); });
+  };
+  function enrolCard(card) {
+    if (!CARD_RE.test(card)) { beep(220, 300); $('camMsg').textContent = 'Not a PPA clock card'; return; }
+    var id = card.slice(0, 9), S = lsGet('sync', null), e = S && S.cards ? S.cards[id] : null, name = e ? e.n : id;
+    if (busy) return; busy = true; clearInterval(scanTimer);
+    $('camTop').textContent = 'Enrolling ' + name + ' — look straight at the camera and keep still';
+    var got = [], tries = 0;
+    (function one() {
+      if (!stream || tries >= 14 || got.length >= 5) return done();
+      tries++;
+      var c = frame(480);
+      detect(c).then(function (r) { if (r && r.detection.score > 0.6) got.push(Array.prototype.map.call(r.descriptor, function (v) { return +v.toFixed(4); })); $('camMsg').textContent = got.length + ' / 5'; setTimeout(one, 450); }).catch(function () { setTimeout(one, 450); });
+    })();
+    function done() {
+      busy = false; enrolling = false; setMode(null);
+      if (got.length < 3) { show('bad', 'Face not enrolled', name, 'Could not see the face clearly. Try again with better light.'); return; }
+      var F = faceDb(); F.faces[id] = { n: name, d: got, at: new Date().toISOString().slice(0, 16).replace('T', ' ') }; lsSet('faces', F);
+      post({ action: 'faceSave', id: id, n: name, d: got, at: F.faces[id].at }).then(function (r) { if (r.ok) sync(); }).catch(function () { });
+      okSound(); show('in', 'Face enrolled ✔', name, got.length + ' samples saved. The card still works.'); renderAdmin();
+    }
+  }
+  function renderAdmin() {
+    var F = faceDb().faces, ids = Object.keys(F);
+    $('faces').innerHTML = ids.length ? ids.map(function (k) { return '<div>' + esc(F[k].n) + ' <small>(' + esc(k) + ')</small> <button data-del="' + esc(k) + '">Remove</button></div>'; }).join('') : '<small>No faces enrolled yet.</small>';
+    var rows = recent().filter(function (x) { return x.day === dayKey(new Date()); }).reverse().slice(0, 25);
+    $('recent').innerHTML = rows.map(function (r) { return '<tr><td>' + esc(r.time) + '</td><td>' + esc(r.name || r.id) + '</td><td>' + (r.ot ? 'OT ' : '') + (r.type === 'IN' ? 'In' : 'Out') + (r.wait ? ' (waiting)' : '') + '</td><td>' + esc(r.flag || '') + '</td></tr>'; }).join('');
+  }
+  $('faces').onclick = function (e) {
+    var id = e.target && e.target.getAttribute('data-del'); if (!id || !confirm('Remove the enrolled face?')) return;
+    var F = faceDb(); delete F.faces[id]; lsSet('faces', F); renderAdmin();
+    post({ action: 'faceDel', id: id }).then(sync).catch(function () { });
+  };
+  $('bSync').onclick = function () { sync(); };
+
+  // ---- keep alive, updates ----
+  function keepAwake() { try { if (navigator.wakeLock && document.visibilityState === 'visible') navigator.wakeLock.request('screen').catch(function () { }); } catch (e) { } }
+  keepAwake(); document.addEventListener('visibilitychange', function () { keepAwake(); if (document.visibilityState === 'hidden' && stream && !busy) { enrolling = false; setMode(null); stopCam(); } });
+  function checkUpdate() {
+    if (!/^https:/.test(location.protocol)) return;
+    fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
+      var mm = /var APP_VER = '([^']+)'/.exec(t || '');
+      if (mm && mm[1] !== APP_VER) { var go = function () { if (!mode && !busy && !flushing && !queue().length && Date.now() - lastTouch > 10000) location.reload(); else setTimeout(go, 15000); }; go(); }
+    }).catch(function () { });
+  }
+  setInterval(checkUpdate, 5 * 60 * 1000); setInterval(sync, 4 * 60 * 1000);
+  if ('serviceWorker' in navigator && /^https:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(function () { });
+
+  renderAdmin(); tick(); listCams(); net(navigator.onLine !== false); sync();
+  window.__ppaClock = { clock: clock, sync: sync, queue: queue };   // for tests
+})();
+</script>
+</body>
+</html>
