@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -165,13 +165,24 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
   </div>
 </main>
 <footer><span id="net"><i class="dot"></i>Starting</span><span class="mid">QUALITY &nbsp;/&nbsp; SAFETY &nbsp;/&nbsp; SUSTAINABILITY</span><span class="sig">PPA Team</span></footer>
-<canvas id="cv" width="640" height="480" hidden></canvas>
+<div id="consent" style="display:none;position:fixed;inset:0;z-index:99;background:rgba(10,18,40,.92);align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;color:#1b2540;max-width:640px;width:100%;max-height:92vh;overflow:auto;border-radius:14px;padding:20px 22px;font-size:15px;line-height:1.45">
+    <h2 style="margin:0 0 8px;font-size:20px">Face Recognition Consent</h2>
+    <p><b>What we collect.</b> The tablet takes a few photos of your face and turns them into a numeric face template. It cannot be turned back into a photo. At each clock in or out a small photo may also be saved with the time record.</p>
+    <p><b>Why.</b> To confirm the card holder is the person clocking, to keep accurate attendance for payroll and leave, and to prevent clocking for another person.</p>
+    <p><b>Who can see it.</b> Only HR and the General Manager. Data is stored in Power Pack Africa's company Google account and is not shared outside the company or used for any other purpose.</p>
+    <p><b>How long.</b> Face template: while you work at Power Pack Africa. Clock-in photos: up to 12 months. Attendance records are kept as part of payroll records.</p>
+    <p><b>Your choice.</b> Face recognition is optional and your card always works. You can withdraw consent at any time by telling HR, and your face template will be deleted.</p>
+    <label style="display:flex;gap:10px;align-items:flex-start;margin:12px 0;font-weight:600"><input type="checkbox" id="consentChk" style="width:24px;height:24px;flex:none"> I have read this notice and I agree that Power Pack Africa may capture my face template and clock-in photos for the purposes above.</label>
+    <div style="display:flex;gap:10px;justify-content:flex-end"><button id="consentNo" style="padding:12px 18px;font-size:16px">Cancel</button><button id="consentYes" disabled style="padding:12px 18px;font-size:16px;font-weight:700;background:#c9a24a;border:0;border-radius:8px;color:#10183a;opacity:.5">I agree, continue</button></div>
+  </div>
+</div><canvas id="cv" width="640" height="480" hidden></canvas>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
 <script>
 (function () {
   'use strict';
-  var APP_VER = '2026-10-20-2';
+  var APP_VER = '2026-10-20-3';
   var API = 'https://script.google.com/macros/s/AKfycbzqY-Si-Drz7B-MAsT0hWSx8NWF6hUU46ibuscemGgY6-Yzn2uvHhXAkkpHb3YpDYpr/exec';
   var MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/';
   var CARD_RE = /^PPA\d{6}-[A-Z2-9]{4}$/;
@@ -494,6 +505,14 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
   // ---- admin: enrol faces ----
   var enrolId = '';
   $('bEnrol').onclick = function () {
+    if (enrolling) return;
+    var cm = $('consent'), ck = $('consentChk'), yes = $('consentYes');
+    ck.checked = false; yes.disabled = true; yes.style.opacity = '.5'; cm.style.display = 'flex';
+    ck.onchange = function () { yes.disabled = !ck.checked; yes.style.opacity = ck.checked ? '1' : '.5'; };
+    $('consentNo').onclick = function () { cm.style.display = 'none'; };
+    yes.onclick = function () { if (!ck.checked) return; cm.style.display = 'none'; startEnrol(); };
+  };
+  function startEnrol() {
     if (enrolling) return;
     enrolling = true; setMode('IN', false); $('camTop').textContent = 'Enrol a face — scan the employee card';
     startCam().then(function () { scanTimer = setInterval(scanFrame, 160); return loadModels(); }).catch(function () { enrolling = false; setMode(null); });
