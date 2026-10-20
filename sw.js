@@ -1,7 +1,7 @@
 ﻿// PPA Clock service worker: lets the page (and the libraries / face models) load without internet.
 // index.html is network-first (so a new version is picked up); everything else is cache-first.
-var CACHE = 'ppa-clock-v2';
-var SHELL = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
+var CACHE = 'ppa-clock-v3';
+var SHELL = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'logo.png', 'header_bottles.jpg'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
@@ -25,4 +25,5 @@ self.addEventListener('fetch', function (e) {
     return m || fetch(req).then(function (r) { if (r && r.ok) { var cp = r.clone(); caches.open(CACHE).then(function (c) { c.put(req, cp); }); } return r; });
   }));
 });
+
 

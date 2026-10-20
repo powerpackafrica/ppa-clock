@@ -3,69 +3,157 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#1b2130">
+<meta name="theme-color" content="#00101f">
 <title>PPA Clock</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <style>
-:root{--red:#d3202a;--ink:#1b2130;--ink2:#262d3f;--line:#394258;--fg:#f4f6fa;--muted:#a9b2c3;--ok:#1f9d55;--bad:#d3202a;--warn:#e0a100}
+:root{--gold:#e6b956;--gold2:#c99a3c;--goldtxt:#f0cd8e;--line:rgba(214,165,70,.72);--red:#aa1e22}
+html{font-size:clamp(11px,2.1vmin,24px)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;background:var(--ink);color:var(--fg);font:16px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow:hidden;user-select:none}
-body{display:flex;flex-direction:column}
-header{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;background:linear-gradient(90deg,#1b2130 0%,#2a1c27 60%,#7d1a22 100%);border-bottom:3px solid var(--red)}
-.brand b{display:block;font-size:22px;letter-spacing:.06em}.brand span{font-size:12px;color:var(--muted);letter-spacing:.12em}
-.clock{text-align:right}.clock b{display:block;font:700 44px/1 ui-monospace,Consolas,monospace}.clock span{font-size:13px;color:var(--muted)}
-.ban{background:var(--red);padding:8px 16px;text-align:center;font-weight:700;letter-spacing:.04em}.ban small{font-weight:400;opacity:.9;margin-left:8px}
-main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;gap:14px;min-height:0;position:relative}
-.btns{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:min(900px,100%)}
-.btn{border:0;border-radius:20px;padding:34px 12px;font-size:34px;font-weight:800;color:#fff;cursor:pointer;text-align:center;box-shadow:0 6px 0 rgba(0,0,0,.35)}
-.btn small{display:block;font-size:15px;font-weight:500;opacity:.9;margin-top:6px}
-.btn:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.35)}
-.in{background:var(--ok)}.out{background:#2b6cb0}
-.ot{grid-column:1/3;display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.ot .btn{padding:14px;font-size:20px;background:var(--ink2);border:2px solid var(--line);box-shadow:none}
-.hint{color:var(--muted);text-align:center}.hint b{color:var(--fg);display:block;font-size:20px}
-#cam{display:none;width:min(560px,100%);position:relative;border-radius:18px;overflow:hidden;background:#000;border:3px solid var(--red)}
+html,body{margin:0;height:100%;background:#000b17;color:#fff;font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none}
+body{display:flex;flex-direction:column;background:radial-gradient(120% 90% at 70% 0%,#04203a 0%,#00101f 55%,#000b17 100%)}
+
+/* header */
+.hd{position:relative;display:flex;align-items:center;justify-content:space-between;padding:1rem 1.8rem;min-height:8.6rem;background:linear-gradient(90deg,#04121f 0%,#03172b 55%,#02172b 100%);border-bottom:1px solid rgba(214,165,70,.35);overflow:hidden}
+.brandrow{display:flex;align-items:center;gap:1.2rem;position:relative;z-index:2}
+.logo{height:6.4rem;width:auto;display:block}
+.vsep{width:1px;align-self:stretch;margin:.5rem 0;background:linear-gradient(transparent,rgba(214,165,70,.85),transparent)}
+.brand b{display:block;font-size:2.5rem;font-weight:800;letter-spacing:.07em;line-height:1.1;color:#fff}
+.brand span{display:block;margin-top:.5rem;font-size:.9rem;font-weight:600;letter-spacing:.22em;color:var(--goldtxt)}
+.bottles{position:absolute;left:44%;top:0;bottom:0;width:38%;background:url(header_bottles.jpg) left center/cover no-repeat;-webkit-mask-image:linear-gradient(90deg,#000 0,#000 72%,transparent 100%);mask-image:linear-gradient(90deg,#000 0,#000 72%,transparent 100%)}
+.clockblock{display:flex;align-items:center;gap:1.6rem;position:relative;z-index:2}
+.clock{text-align:right}
+.clock span{display:block;font-size:1.05rem;letter-spacing:.1em;color:#fff}
+.clock b{display:block;font-size:3.7rem;font-weight:700;line-height:1.05;color:var(--gold);font-variant-numeric:tabular-nums;text-shadow:0 0 18px rgba(230,185,86,.25)}
+.tag{padding:.8rem 2rem 0;font-size:.95rem;font-weight:700;letter-spacing:.28em;color:var(--gold);line-height:1.3}
+.tag i{display:block;width:3.4rem;height:2px;margin-top:.45rem;background:linear-gradient(90deg,var(--gold),transparent)}
+.ban{margin:.9rem 2rem 0;border-radius:.7rem;padding:.8rem 1.2rem;display:flex;align-items:center;justify-content:center;gap:.9rem;background:linear-gradient(#b1232a,#8f161c);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 4px 14px rgba(0,0,0,.4)}
+.ban svg{width:1.9rem;height:1.9rem;flex:none}
+.ban b{font-size:1.35rem;font-weight:800;letter-spacing:.02em}
+.ban i{width:1px;height:1.7rem;background:rgba(255,255,255,.55)}
+.ban span{font-size:1.05rem;opacity:.95}
+
+/* main */
+main{flex:1;min-height:0;padding:1.1rem 2rem .8rem;display:flex;flex-direction:column;gap:1.1rem;position:relative;overflow:hidden}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}
+.btn{appearance:none;-webkit-appearance:none;font:inherit;color:#fff;text-align:left;cursor:pointer;display:flex;align-items:center;gap:1.3rem;border:1.5px solid var(--line);border-radius:1.2rem;padding:1.4rem 1.6rem;box-shadow:inset 0 0 0 1px rgba(255,214,140,.07),0 8px 22px rgba(0,0,0,.45)}
+.btn:active{transform:scale(.985);filter:brightness(1.18)}
+.btn .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:.35rem}
+.btn .t b{font-size:2.5rem;font-weight:700;line-height:1.05}
+.btn .t small{font-size:1.15rem;color:#e8edf5;opacity:.95}
+.btn .ic{width:5.8rem;height:5.8rem;flex:none}
+.btn .vs{width:1px;align-self:stretch;margin:.3rem 0;background:linear-gradient(transparent,rgba(214,165,70,.65),transparent)}
+.btn .chev{width:1.8rem;height:1.8rem;flex:none}
+.in{background:linear-gradient(90deg,#0a2f2c 0%,#17403c 55%,#052724 100%)}
+.out{background:linear-gradient(90deg,#0a2543 0%,#16304f 55%,#041f3e 100%)}
+.ot{background:linear-gradient(90deg,#0b1a28,#0e1d2d);padding:1rem 1.6rem;border-color:rgba(214,165,70,.55)}
+.ot .ic{width:3.5rem;height:3.5rem}
+.ot .t b{font-size:1.6rem}.ot .t small{font-size:1.05rem}
+.hint{flex:none;position:relative;overflow:hidden;border:1.5px solid var(--line);border-radius:1.2rem;padding:1.4rem 1rem;text-align:center;background:linear-gradient(90deg,#0d1b2b,#081829 50%,#0f1f30);display:flex;flex-direction:column;align-items:center;gap:.5rem;box-shadow:0 8px 22px rgba(0,0,0,.4)}
+.hint svg{width:3.4rem;height:3.4rem;flex:none}
+.hint b{font-size:1.65rem;letter-spacing:.14em;font-weight:800}
+.hint small{font-size:1rem;letter-spacing:.22em;color:var(--goldtxt);font-weight:600}
+.hint::after{content:"";position:absolute;right:0;bottom:0;width:9rem;height:6rem;background:linear-gradient(135deg,#f6dca0,#c99a3c);clip-path:polygon(100% 0,100% 100%,0 100%);opacity:.92}
+#nokey{display:none;background:#0b1a28;border:1.5px solid var(--line);border-radius:1.2rem;padding:1.6rem 1.8rem;max-width:42rem;margin:0 auto}
+#nokey h2{margin:0 0 .6rem;font-size:1.9rem;color:var(--goldtxt)}#nokey p{margin:0;font-size:1.25rem;line-height:1.45}
+
+/* camera + result */
+#cam{display:none;margin:0 auto;width:min(100%,46rem);position:relative;border-radius:1.2rem;overflow:hidden;background:#000;border:2px solid var(--gold2)}
 #cam video{width:100%;display:block;transform:scaleX(-1)}
-#cam .top{position:absolute;left:0;right:0;top:0;padding:10px 14px;background:linear-gradient(#000a,#0000);font-weight:700}
-#cam .bot{position:absolute;left:0;right:0;bottom:0;padding:10px 14px;background:linear-gradient(#0000,#000b);display:flex;justify-content:space-between;align-items:center}
-#cam .bot button{background:#fff2;border:1px solid #fff6;color:#fff;border-radius:10px;padding:8px 14px;font-size:15px}
-#res{display:none;position:absolute;inset:14px;border-radius:22px;padding:28px;text-align:center;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:5}
-#res h1{margin:0;font-size:42px}#res .who{font-size:30px;font-weight:700}#res .sub{font-size:19px;opacity:.95}#res .flag{margin-top:10px;background:#0006;padding:10px 16px;border-radius:12px;font-size:19px}
-#res button{margin-top:14px;background:#fff;color:#111;border:0;border-radius:12px;padding:14px 22px;font-size:20px;font-weight:700}
-.r-in{background:var(--ok)}.r-out{background:#2b6cb0}.r-bad{background:var(--bad)}.r-warn{background:var(--warn);color:#1a1a1a}.r-wait{background:var(--ink2);border:2px solid var(--line)}
-footer{display:flex;justify-content:space-between;padding:8px 18px;font-size:13px;color:var(--muted);border-top:1px solid var(--line)}
-#nokey{display:none;background:#fff;color:#111;border-radius:16px;padding:22px;max-width:560px}
-.admin #adm{display:block}#adm{display:none;position:absolute;right:10px;bottom:34px;width:min(430px,94%);max-height:55%;overflow:auto;background:#0d1220f2;border:1px solid var(--line);border-radius:14px;padding:12px;font-size:14px;z-index:9}
-#adm h3{margin:6px 0;font-size:15px}#adm button,#adm select{background:var(--ink2);color:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin:2px}
-#adm table{width:100%;border-collapse:collapse}#adm td{padding:3px 4px;border-bottom:1px solid var(--line)}
+#cam .top{position:absolute;left:0;right:0;top:0;padding:.7rem 1rem 1.4rem;background:linear-gradient(#000d,#0000);font-weight:700;font-size:1.25rem}
+#cam .note{position:absolute;left:0;right:0;top:2.7rem;padding:0 1rem;font-size:.85rem;color:var(--goldtxt)}
+#cam .bot{position:absolute;left:0;right:0;bottom:0;padding:.7rem 1rem;background:linear-gradient(#0000,#000c);display:flex;justify-content:space-between;align-items:center;font-size:1.05rem}
+#cam .bot button{background:#fff2;border:1px solid #fff7;color:#fff;border-radius:.6rem;padding:.5rem 1.1rem;font-size:1.05rem}
+#res{display:none;position:absolute;inset:.8rem 2rem;border-radius:1.4rem;padding:1.6rem;text-align:center;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;z-index:5;border:2px solid var(--gold2);box-shadow:0 12px 40px rgba(0,0,0,.65)}
+#res h1{margin:0;font-size:2.8rem}#res .who{font-size:2.1rem;font-weight:700}#res .sub{font-size:1.3rem}
+#res .flag{margin-top:.6rem;background:#0007;padding:.7rem 1.1rem;border-radius:.8rem;font-size:1.25rem}
+#res button{margin-top:.9rem;background:#fff;color:#111;border:0;border-radius:.8rem;padding:.9rem 1.5rem;font-size:1.3rem;font-weight:700}
+.r-in{background:linear-gradient(#0f5a45,#0a3f31)}.r-out{background:linear-gradient(#143f73,#0c2b55)}.r-bad{background:linear-gradient(#b3202a,#7d121a)}.r-warn{background:linear-gradient(#e3a925,#b98512);color:#1a1405}.r-wait{background:#0b1a28}
+
+/* footer */
+footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.8rem 2rem;border-top:1px solid rgba(214,165,70,.28);font-size:.95rem;color:#dfe6ef}
+.dot{display:inline-block;width:.8rem;height:.8rem;border-radius:50%;background:#32ca89;margin-right:.6rem;box-shadow:0 0 8px #32ca89aa;vertical-align:middle}.dot.off{background:#e0a100;box-shadow:none}
+footer .mid{letter-spacing:.25em;font-weight:600;color:var(--goldtxt);font-size:.85rem;text-align:center}
+footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Roundhand",cursive;color:var(--gold);white-space:nowrap}
+
+/* admin panel (?setup) */
+.admin #adm{display:block}
+#adm{display:none;position:absolute;right:.8rem;bottom:.6rem;width:min(30rem,94%);max-height:60%;overflow:auto;background:#050f1cf2;border:1px solid var(--line);border-radius:.9rem;padding:.8rem;font-size:.95rem;z-index:9}
+#adm h3{margin:.4rem 0;font-size:1rem}
+#adm button,#adm select{background:#0e1d2d;color:#fff;border:1px solid var(--line);border-radius:.5rem;padding:.35rem .7rem;margin:2px;font-size:.9rem}
+#adm table{width:100%;border-collapse:collapse}#adm td{padding:3px 4px;border-bottom:1px solid rgba(214,165,70,.25)}
 .dim #wrap{opacity:.12}
+
+/* tablet lying down: fit more height */
+@media (orientation:landscape){html{font-size:clamp(11px,1.8vmin,22px)}}
+
+/* tablet standing up (portrait) */
 @media (orientation:portrait){
-  header{padding:12px 16px}.brand b{font-size:19px}.clock b{font-size:36px}
-  main{justify-content:flex-start;padding:22px 16px 14px;gap:18px}
-  .btns{grid-template-columns:1fr;gap:20px;width:100%}
-  .btn{padding:52px 12px;font-size:44px}.btn small{font-size:17px}
-  .ot{grid-column:1/2;gap:14px}.ot .btn{padding:20px 10px;font-size:24px}
-  #cam{width:100%}#res{inset:12px;padding:20px}#res h1{font-size:38px}#res .who{font-size:28px}
-  .hint b{font-size:22px}
+  .hd{flex-wrap:wrap;padding:.9rem 1.2rem;min-height:0;row-gap:.7rem}
+  .logo{height:4.8rem}.brand b{font-size:2rem}.brand span{font-size:.6rem;letter-spacing:.13em}
+  .bottles{left:auto;right:0;width:48%;opacity:.4}
+  .clockblock{width:100%;justify-content:flex-end}.clock b{font-size:3.1rem}
+  .tag{padding:.6rem 1.2rem 0;font-size:.8rem}
+  .ban{margin:.7rem 1.2rem 0;padding:.7rem .8rem;flex-wrap:wrap;gap:.5rem .8rem}.ban b{font-size:1.15rem}.ban span{font-size:.85rem}.ban i{display:none}
+  main{padding:.9rem 1.2rem .6rem;gap:.9rem}
+  .btns{grid-template-columns:1fr 1fr;grid-template-rows:3fr 3fr 1.25fr;gap:.9rem;flex:1;min-height:0}
+  .in,.out{grid-column:1/3;padding:0 1.2rem}
+  .btn .ic{width:5rem;height:5rem}.btn .t b{font-size:2.3rem}
+  .ot{padding:.9rem .9rem;gap:.7rem}.ot .ic{width:2.6rem;height:2.6rem}.ot .t b{font-size:1.4rem}.ot .t small{font-size:.82rem}.ot .chev{display:none}
+  .hint b{font-size:1.3rem;letter-spacing:.1em}.hint small{font-size:.8rem;letter-spacing:.16em}
+  footer{padding:.7rem 1.2rem}footer .mid{font-size:.55rem;letter-spacing:.14em}
+  .hint{padding:1.8rem 1rem}
+  #res{inset:.6rem 1.2rem}
 }
 </style>
 </head>
 <body>
-<header>
-  <div class="brand"><b>POWER PACK AFRICA</b><span>STAFF CLOCK</span></div>
-  <div class="clock"><b id="clock">--:--:--</b><span id="date"></span></div>
-</header>
-<div class="ban">STRICTLY PROHIBITED <small>Clocking in or out for another person</small></div>
-<main id="wrap">
-  <div id="nokey"><h2 style="margin-top:0">This tablet is not set up</h2><p>Please ask HR or Amilcar for the tablet setup link and open it once on this tablet. You only need to do this once.</p></div>
-  <div class="btns" id="btns">
-    <button class="btn in" id="bIn">Clock in<small id="inSub"></small></button>
-    <button class="btn out" id="bOut">Clock out<small>Thank you &middot; see you next shift</small></button>
-    <div class="ot"><button class="btn" id="bOtIn">OT in<small>Overtime start &middot; needs approval</small></button><button class="btn" id="bOtOut">OT out<small>Overtime end &middot; needs approval</small></button></div>
+<header class="hd">
+  <div class="brandrow">
+    <img class="logo" src="logo.png" alt="PPA">
+    <div class="vsep"></div>
+    <div class="brand"><b>POWER PACK AFRICA</b><span>INTEGRITY, QUALITY, INNOVATION AND SERVICE</span></div>
   </div>
-  <div class="hint" id="hint"><b>Tap Clock in or Clock out</b>Then show your card to the camera. No card? Look at the camera.</div>
-  <div id="cam"><div class="top" id="camTop">Show your card</div><video id="video" playsinline muted autoplay></video><div class="bot"><span id="camMsg"></span><button id="bCancel">Cancel</button></div></div>
+  <div class="bottles" aria-hidden="true"></div>
+  <div class="clockblock"><div class="vsep"></div><div class="clock"><span id="date"></span><b id="clock">--:--:--</b></div></div>
+</header>
+<div class="tag">POWERING BRANDS,<br>BOTTLE BY BOTTLE<i></i></div>
+<div class="ban">
+  <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><circle cx="16" cy="16" r="12.5"/><path d="M7.5 24.5 24.5 7.5"/></svg>
+  <b>STRICTLY PROHIBITED</b><i></i><span>Clocking in or out for another person</span>
+</div>
+<main id="wrap">
+  <div id="nokey"><h2>This tablet is not set up</h2><p>Please ask HR or Amilcar for the tablet setup link and open it once on this tablet. You only need to do this once.</p></div>
+  <div class="btns" id="btns">
+    <button class="btn in" id="bIn">
+      <svg class="ic" viewBox="0 0 64 64" fill="none" stroke="#e6b956" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 44A24 24 0 1 1 22 54"/><path d="M32 18v15l9 6"/><path d="M6 36l7 8 8-7"/></svg>
+      <i class="vs"></i>
+      <span class="t"><b>Clock in</b><small id="inSub"></small></span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="#f0cd8e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l9 9-9 9"/></svg>
+    </button>
+    <button class="btn out" id="bOut">
+      <svg class="ic" viewBox="0 0 64 64" fill="none" stroke="#e6b956" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M51 44A24 24 0 1 0 42 54"/><path d="M32 18v15l-9 6"/><path d="M58 36l-7 8-8-7"/></svg>
+      <i class="vs"></i>
+      <span class="t"><b>Clock out</b><small>Thank you &middot; see you next shift</small></span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="#f0cd8e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l9 9-9 9"/></svg>
+    </button>
+    <button class="btn ot" id="bOtIn">
+      <svg class="ic" viewBox="0 0 48 48" fill="none" stroke="#e6b956" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="27" r="15"/><path d="M24 27v-8M19 7h10M24 7v5M38 13l3-3"/></svg>
+      <span class="t"><b>OT in</b><small>Overtime start &middot; needs approval</small></span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="#f0cd8e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l9 9-9 9"/></svg>
+    </button>
+    <button class="btn ot" id="bOtOut">
+      <svg class="ic" viewBox="0 0 48 48" fill="none" stroke="#e6b956" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="27" r="15"/><path d="M24 27v-8M19 7h10M24 7v5M38 13l3-3"/></svg>
+      <span class="t"><b>OT out</b><small>Overtime end &middot; needs approval</small></span>
+      <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="#f0cd8e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l9 9-9 9"/></svg>
+    </button>
+  </div>
+  <div class="hint" id="hint">
+    <svg viewBox="0 0 48 48" fill="none" stroke="#e6b956" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V6h8M36 6h8v8M44 34v8h-8M12 42H4v-8"/><rect x="11" y="15" width="26" height="19" rx="3.5"/><circle cx="24" cy="24.5" r="5.5"/><path d="M18 15l2-3h8l2 3"/></svg>
+    <b>TAP CLOCK IN OR CLOCK OUT</b><small>THEN SHOW YOUR CARD TO THE CAMERA</small>
+  </div>
+  <div id="cam"><div class="top" id="camTop">Show your card</div><div class="note">Face recognition is optional: your card always works.</div><video id="video" playsinline muted autoplay></video><div class="bot"><span id="camMsg"></span><button id="bCancel">Cancel</button></div></div>
   <div id="res"></div>
   <div id="adm">
     <h3>Tablet settings <small id="ver"></small></h3>
@@ -76,14 +164,14 @@ footer{display:flex;justify-content:space-between;padding:8px 18px;font-size:13p
     <table id="recent"></table>
   </div>
 </main>
-<footer><span id="net">&bull; Starting</span><span>Face recognition is optional: your card always works.</span></footer>
+<footer><span id="net"><i class="dot"></i>Starting</span><span class="mid">QUALITY &nbsp;/&nbsp; SAFETY &nbsp;/&nbsp; SUSTAINABILITY</span><span class="sig">PPA Team</span></footer>
 <canvas id="cv" width="640" height="480" hidden></canvas>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
 <script>
 (function () {
   'use strict';
-  var APP_VER = '2026-10-20-1';
+  var APP_VER = '2026-10-20-2';
   var API = 'https://script.google.com/macros/s/AKfycbzqY-Si-Drz7B-MAsT0hWSx8NWF6hUU46ibuscemGgY6-Yzn2uvHhXAkkpHb3YpDYpr/exec';
   var MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/';
   var CARD_RE = /^PPA\d{6}-[A-Z2-9]{4}$/;
@@ -121,7 +209,7 @@ footer{display:flex;justify-content:space-between;padding:8px 18px;font-size:13p
   }
   function net(ok) {
     var n = queue().length;
-    $('net').textContent = ok ? '● Online' + (n ? ' · ' + n + ' uploading' : '') : '● No internet · ' + n + ' record(s) saved on this tablet, will upload automatically';
+    $('net').innerHTML = '<i class="dot' + (ok ? '' : ' off') + '"></i>' + (ok ? 'Online' + (n ? ' \u00B7 ' + n + ' uploading' : '') : 'No internet \u00B7 ' + n + ' record(s) saved on this tablet, will upload automatically');
     $('net').style.color = ok ? '' : '#ffcc66';
   }
 
@@ -462,4 +550,7 @@ footer{display:flex;justify-content:space-between;padding:8px 18px;font-size:13p
 </script>
 </body>
 </html>
+
+
+
 
