@@ -62,6 +62,14 @@ main{flex:1;min-height:0;padding:1.1rem 2rem .8rem;display:flex;flex-direction:c
 #cam{display:none;margin:0 auto;width:min(100%,46rem);position:relative;border-radius:1.2rem;overflow:hidden;background:#000;border:2px solid var(--gold2)}
 #cam video{width:100%;display:block;transform:scaleX(-1)}
 #cam .top{position:absolute;left:0;right:0;top:0;padding:.7rem 1rem 1.4rem;background:linear-gradient(#000d,#0000);font-weight:700;font-size:1.25rem}
+#cam .guide{position:absolute;inset:0;pointer-events:none}
+#cam .oval{position:absolute;left:50%;top:12%;transform:translateX(-50%);width:min(50%,44vh);aspect-ratio:3/4;border:3px dashed #fffa;border-radius:50%;transition:border-color .2s,box-shadow .2s}
+#cam .oval.ok{border:3px solid #3ddc84;box-shadow:0 0 22px #3ddc8499}
+#cam .sq{position:absolute;left:50%;top:63%;transform:translateX(-50%);width:min(46%,36vh);aspect-ratio:1/1;border:3px dashed #ffd600e6;border-radius:16px}
+#cam .sq.ok{border:3px solid #3ddc84;box-shadow:0 0 22px #3ddc8499}
+#cam .guide span{position:absolute;left:0;right:0;text-align:center;font-size:.95rem;text-shadow:0 1px 3px #000}
+#cam .oval span{bottom:-1.7rem;color:#fff}
+#cam .sq span{top:-1.7rem;color:#ffd600}
 #cam .note{position:absolute;left:0;right:0;top:2.7rem;padding:0 1rem;font-size:.85rem;color:var(--goldtxt)}
 #cam .bot{position:absolute;left:0;right:0;bottom:0;padding:.7rem 1rem;background:linear-gradient(#0000,#000c);display:flex;justify-content:space-between;align-items:center;font-size:1.05rem}
 #cam .bot button{background:#fff2;border:1px solid #fff7;color:#fff;border-radius:.6rem;padding:.5rem 1.1rem;font-size:1.05rem}
@@ -153,7 +161,7 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
     <svg viewBox="0 0 48 48" fill="none" stroke="#e6b956" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V6h8M36 6h8v8M44 34v8h-8M12 42H4v-8"/><rect x="11" y="15" width="26" height="19" rx="3.5"/><circle cx="24" cy="24.5" r="5.5"/><path d="M18 15l2-3h8l2 3"/></svg>
     <b>TAP CLOCK IN OR CLOCK OUT</b><small>THEN SHOW YOUR CARD TO THE CAMERA</small>
   </div>
-  <div id="cam"><div class="top" id="camTop">Show your card</div><div class="note">Face recognition is optional: your card always works.</div><video id="video" playsinline muted autoplay></video><div class="bot"><span id="camMsg"></span><button id="bCancel">Cancel</button></div></div>
+  <div id="cam"><div class="top" id="camTop">Show your card</div><div class="note">Face recognition is optional: your card always works.</div><video id="video" playsinline muted autoplay></video><div class="guide"><div class="oval" id="ovalFace"><span>Face in the oval</span></div><div class="sq" id="sqCard"><span>Card here</span></div></div><div class="bot"><span id="camMsg"></span><button id="bCancel">Cancel</button></div></div>
   <div id="res"></div>
   <div id="adm">
     <h3>Tablet settings <small id="ver"></small></h3>
@@ -182,7 +190,7 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
 <script>
 (function () {
   'use strict';
-  var APP_VER = '2026-10-20-3';
+  var APP_VER = '2026-10-21-1';
   var API = 'https://script.google.com/macros/s/AKfycbzqY-Si-Drz7B-MAsT0hWSx8NWF6hUU46ibuscemGgY6-Yzn2uvHhXAkkpHb3YpDYpr/exec';
   var MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/';
   var CARD_RE = /^PPA\d{6}-[A-Z2-9]{4}$/;
@@ -343,8 +351,9 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
     setMode(t, ot);
     startCam().then(function () {
       modeAt = Date.now();
-      scanTimer = setInterval(scanFrame, 160);
-      faceTimer = setInterval(faceFrame, 700);
+      scanTimer = setInterval(scanFrame, 90);
+      faceTimer = setInterval(faceFrame, 250);
+      $('ovalFace').classList.remove('ok');
       loadModels();
     }).catch(function (e) { setMode(null); fail('Camera not available', 'Please allow the camera for this page, or tell HR (' + (e && e.name || 'error') + ')'); });
   }
@@ -361,12 +370,31 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
   function takePhoto() {
     try { var c = document.createElement('canvas'), vw = video.videoWidth, vh = video.videoHeight; if (!vw) return ''; c.width = 320; c.height = Math.round(320 * vh / vw); c.getContext('2d').drawImage(video, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', 0.6); } catch (e) { return ''; }
   }
-  var lastCode = '', lastCodeAt = 0;
+  var lastCode = '', lastCodeAt = 0, scanN = 0, bd = null, bdBusy = false;
+  try { if ('BarcodeDetector' in window) BarcodeDetector.getSupportedFormats().then(function (f) { if (f.indexOf('qr_code') >= 0) bd = new BarcodeDetector({ formats: ['qr_code'] }); }).catch(function () { }); } catch (e) { }
+  // the yellow square on screen, mapped to video pixels (video is mirrored), with 35% margin around it
+  function scanRect() {
+    var fe = $('sqCard'), vw = video.videoWidth, vh = video.videoHeight; if (!fe || !vw || !vh) return null;
+    var fr = fe.getBoundingClientRect(), vr = video.getBoundingClientRect(); if (!fr.width || !vr.width) return null;
+    var s = Math.max(vr.width / vw, vr.height / vh), ox = (vr.width - vw * s) / 2, oy = (vr.height - vh * s) / 2, pad = fr.width * 0.35;
+    var x1 = fr.left - vr.left - pad, x2 = fr.right - vr.left + pad, y1 = fr.top - vr.top - pad, y2 = fr.bottom - vr.top + pad;
+    var sx1 = Math.max(0, vw - (x2 - ox) / s), sx2 = Math.min(vw, vw - (x1 - ox) / s), sy1 = Math.max(0, (y1 - oy) / s), sy2 = Math.min(vh, (y2 - oy) / s);
+    if (sx2 - sx1 < 60 || sy2 - sy1 < 60) return null;
+    return { x: sx1, y: sy1, w: sx2 - sx1, h: sy2 - sy1 };
+  }
   function scanFrame() {
-    if (!mode || busy || !stream) return;
-    var c = frame(640); if (!c) return;
-    var img = cx.getImageData(0, 0, c.width, c.height), q = window.jsQR ? jsQR(img.data, c.width, c.height, { inversionAttempts: 'dontInvert' }) : null;
-    if (q && q.data) gotCode(q.data);
+    if (!mode || busy || !stream || video.readyState < 2 || !video.videoWidth) return;
+    scanN++;
+    if (bd && scanN % 4) {     // built-in detector is fast; every 4th pass still uses jsQR as a safety net
+      if (bdBusy) return; bdBusy = true;
+      bd.detect(video).then(function (c) { bdBusy = false; if (c && c[0] && c[0].rawValue && mode && !busy) gotCode(c[0].rawValue); }).catch(function () { bdBusy = false; bd = null; });
+      return;
+    }
+    if (!window.jsQR) return;
+    var r = scanRect() || { x: 0, y: 0, w: video.videoWidth, h: video.videoHeight }, k = Math.min(1, 800 / r.w), w = Math.round(r.w * k), h = Math.round(r.h * k);
+    cv.width = w; cv.height = h; cx.drawImage(video, r.x, r.y, r.w, r.h, 0, 0, w, h);
+    var q = jsQR(cx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
+    if (q && q.data) { $('sqCard').classList.add('ok'); setTimeout(function () { $('sqCard').classList.remove('ok'); }, 600); gotCode(q.data); }
   }
   function gotCode(raw) {
     var card = String(raw).trim().toUpperCase();
@@ -473,7 +501,13 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
       .then(function () { modelsState = 2; }).catch(function () { modelsState = 0; });
   }
   function detect(input) {
-    return faceapi.detectSingleFace(input, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })).withFaceLandmarks(true).withFaceDescriptor();
+    var run = function (src, t) { return Promise.resolve(faceapi.detectSingleFace(src, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: t })).withFaceLandmarks(true).withFaceDescriptor()); };
+    return run(input, 0.4).then(function (r) {
+      if (r) return r;       // dark skin or low light: try again on a brightened copy
+      var e = document.createElement('canvas'); e.width = input.width; e.height = input.height;
+      var g = e.getContext('2d'); g.filter = 'brightness(1.6) contrast(1.2)'; g.drawImage(input, 0, 0);
+      return run(e, 0.35);
+    });
   }
   function dist(a, b) { var s = 0; for (var i = 0; i < a.length; i++) { var d = a[i] - b[i]; s += d * d; } return Math.sqrt(s); }
   function minDist(q, list) { var m = 9; list.forEach(function (d) { var x = dist(q, d); if (x < m) m = x; }); return m; }
@@ -485,8 +519,8 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
     faceBusy = true;
     detect(c).then(function (r) {
       faceBusy = false; if (!mode || busy) return;
-      if (!r) { faceSeen = false; return; }
-      faceSeen = true;
+      if (!r) { faceSeen = false; $('ovalFace').classList.remove('ok'); return; }
+      faceSeen = true; $('ovalFace').classList.add('ok');
       var best = null, second = null;
       Object.keys(F).forEach(function (k) { var d = minDist(r.descriptor, F[k].d), o = { id: k, n: F[k].n, d: d }; if (!best || d < best.d) { second = best; best = o; } else if (!second || d < second.d) second = o; });
       if (best && best.d <= FACE_THR && (!second || second.d - best.d >= FACE_GAP)) clock('', mode, modeOT, { id: best.id, d: +best.d.toFixed(3) });
