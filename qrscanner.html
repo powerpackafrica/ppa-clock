@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>PPA Clock QR Scanner (admin)</title>
+<style>
+:root{--navy:#10183a;--navy2:#1b2550;--gold:#c9a24a;--ok:#3ddc84;--bad:#ff6b6b;--txt:#eef1ff;--mut:#9aa6d0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--navy);color:var(--txt);font:15px/1.4 system-ui,Segoe UI,Roboto,Arial,sans-serif}
+header{padding:12px 16px;background:var(--navy2);border-bottom:2px solid var(--gold);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+header h1{margin:0;font-size:18px}
+header small{color:var(--mut)}
+main{padding:12px 16px;max-width:980px;margin:0 auto}
+#deny{display:none;padding:24px;text-align:center}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+button,select{font:inherit;padding:10px 14px;border-radius:8px;border:1px solid #fff4;background:#fff1;color:var(--txt)}
+select option{color:#000}
+button.p{background:var(--gold);color:var(--navy);border:0;font-weight:700}
+button[disabled]{opacity:.5}
+.cam{position:relative;background:#000;border-radius:12px;overflow:hidden;border:2px solid var(--gold);max-width:640px;margin:8px auto}
+.cam video{width:100%;display:block}
+.cam canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+.card{background:var(--navy2);border:1px solid #fff2;border-radius:10px;padding:10px 12px}
+.card h3{margin:0 0 6px;font-size:14px;color:var(--gold);text-transform:uppercase;letter-spacing:.05em}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:2px 0;border-bottom:1px dashed #fff1}
+.kv b{font-weight:600;text-align:right;word-break:break-all}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.mut{color:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:4px 6px;border-bottom:1px solid #fff1;text-align:left}
+#big{font-size:20px;font-weight:700;text-align:center;padding:10px;border-radius:10px;background:#fff1;margin:8px 0}
+#big.ok{background:#1d5a3a}#big.bad{background:#6a2b2b}
+#hint{font-size:14px;text-align:center;color:var(--gold);min-height:20px}
+#prev{display:block;margin:6px auto;max-width:100%;border:1px solid #fff3;background:#000}
+</style>
+</head>
+<body>
+<header><h1>PPA Clock QR Scanner <small>admin only · QR cards only · not part of the clock app</small></h1><small id="ver"></small></header>
+<main>
+<div id="deny"><h2>Admin key not found</h2><p>Open the tablet setup link once on this device (the same one used for the clock), then open this page again.</p></div>
+<div id="app">
+  <div class="row">
+    <button class="p" id="bStart">Start scanner</button>
+    <button id="bStop" disabled>Stop</button>
+    <select id="camSel"></select>
+    <select id="resSel"><option value="640x480">640 × 480</option><option value="1280x720" selected>1280 × 720</option><option value="1920x1080">1920 × 1080</option></select>
+  </div>
+  <div class="cam"><video id="video" playsinline muted autoplay></video><canvas id="ov"></canvas></div>
+  <div id="big" class="mut">Press "Start scanner", then show a QR card</div>
+  <div id="hint"></div>
+  <div class="row">
+    <button class="p" id="bCollect" disabled>Collect reading</button>
+    <button id="bCopy">Copy report</button>
+    <button id="bClear">Clear</button>
+  </div>
+  <div class="grid">
+    <div class="card"><h3>QR reader</h3><div id="qr"></div></div>
+    <div class="card"><h3>Camera</h3><div id="camInfo"></div><canvas id="prev" width="160" height="120"></canvas><div class="mut" style="text-align:center;font-size:12px">What the reader sees (centre crop)</div></div>
+  </div>
+  <div class="card" style="margin-top:10px"><h3>Collected readings</h3><table id="log"></table></div>
+</div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+(function () {
+  'use strict';
+  var P = 'ppa_clock_', CARD_RE = /^PPA\d{6}-[A-Z2-9]{4}$/;
+  function $(i) { return document.getElementById(i); }
+  function lsGet(k, d) { try { var v = localStorage.getItem(P + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
+  $('ver').textContent = 'QR scanner 2026-10-22-2';
+  window.addEventListener('error', function (e) { var b = $('big'); b.className = 'bad'; b.textContent = 'Page error: ' + (e.message || e); });
+  var key = lsGet('key', '');
+  if (!key) { $('deny').style.display = 'block'; $('app').style.display = 'none'; return; }
+  if (!window.jsQR) { $('big').className = 'bad'; $('big').textContent = 'jsQR library did not load (check internet)'; }
+
+  var video = $('video'), ov = $('ov'), octx = ov.getContext('2d'), stream = null, loopQ = 0, run = 0, pass = 0, passAt = 0, fps = 0;
+  var work = document.createElement('canvas'), wctx = work.getContext('2d', { willReadFrequently: true });
+  var prev = $('prev'), pctx = prev.getContext('2d', { willReadFrequently: true });
+  var bd = null, bdName = 'not on this tablet (normal), jsQR is used';
+  try { if ('BarcodeDetector' in window) BarcodeDetector.getSupportedFormats().then(function (f) { if (f.indexOf('qr_code') >= 0) { bd = new BarcodeDetector({ formats: ['qr_code'] }); bdName = 'available'; } else bdName = 'no QR support'; }).catch(function () { }); } catch (e) { }
+  var Q = { text: '', engine: '', at: 0, pts: null, engines: {} }, Lt = { light: 0, focus: 0 }, rows = [];
+
+  function kv(k, v, cls) { return '<div class="kv"><span class="mut">' + k + '</span><b class="' + (cls || '') + '">' + v + '</b></div>'; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function age(t) { return t ? ((Date.now() - t) / 1000).toFixed(1) + ' s ago' : 'never'; }
+
+  function render() {
+    var valid = CARD_RE.test(Q.text), recent = Date.now() - Q.at < 2500;
+    var eng = Object.keys(Q.engines).map(function (k) { var e = Q.engines[k]; return kv(k, e.hits + ' / ' + e.tries + (e.ms ? ' · ' + e.ms + ' ms' : ''), e.hits ? 'ok' : 'mut'); }).join('');
+    $('qr').innerHTML = kv('Last QR text', Q.text ? esc(Q.text) : '—', valid ? 'ok' : (Q.text ? 'bad' : 'mut')) +
+      kv('PPA card format', Q.text ? (valid ? 'valid · ' + esc(Q.text.slice(0, 9)) : 'NOT a PPA card') : '—', valid ? 'ok' : (Q.text ? 'bad' : 'mut')) +
+      kv('Read by', Q.engine || '—') + kv('Last read', age(Q.at)) + kv('Built-in QR reader', bdName, bd ? 'ok' : 'mut') +
+      kv('Scan passes', pass + (fps ? ' · ' + fps + ' per second' : '')) + eng;
+    var big = $('big');
+    if (!stream) { big.className = 'mut'; big.textContent = 'Press "Start scanner", then show a QR card'; }
+    else if (recent && valid) { big.className = 'ok'; big.textContent = 'Card read: ' + Q.text.slice(0, 9) + ' (' + Q.engine + ')'; }
+    else if (recent) { big.className = 'bad'; big.textContent = 'QR read, but not a PPA card: ' + Q.text; }
+    else { big.className = 'mut'; big.textContent = 'Looking for a QR code…'; }
+    var h = '';
+    if (stream && !recent) {
+      if (Lt.light && Lt.light < 70) h = 'Too dark: add light on the card.';
+      else if (Lt.light > 210) h = 'Too bright or glare: tilt the card slightly.';
+      else if (Lt.focus && Lt.focus < 40) h = 'Image is blurry: try the card at 10–15 cm, or further away, until it sharpens.';
+    }
+    $('hint').textContent = h;
+  }
+
+  function camInfo() {
+    var t = stream && stream.getVideoTracks()[0], s = t ? t.getSettings() : {}, c = t && t.getCapabilities ? t.getCapabilities() : {};
+    $('camInfo').innerHTML = t ? kv('Camera', esc(t.label || '—')) + kv('Resolution', s.width + ' × ' + s.height) + kv('Frame rate', s.frameRate ? Math.round(s.frameRate) + ' fps' : '—') +
+      kv('Auto focus', c.focusMode ? esc(c.focusMode.join(', ')) + (s.focusMode ? ' (now: ' + s.focusMode + ')' : '') : 'not reported') + kv('Brightness', Lt.light ? Lt.light + ' / 255' : '—', Lt.light && (Lt.light < 70 || Lt.light > 210) ? 'bad' : '') + kv('Sharpness', Lt.focus ? Lt.focus : '—', Lt.focus && Lt.focus < 40 ? 'bad' : '') : '<span class="mut">Camera not started</span>';
+  }
+
+  function listCams() {
+    navigator.mediaDevices.enumerateDevices().then(function (ds) {
+      var sel = $('camSel'), cur = sel.value; sel.innerHTML = '';
+      ds.filter(function (d) { return d.kind === 'videoinput'; }).forEach(function (d, i) { var o = document.createElement('option'); o.value = d.deviceId; o.textContent = d.label || 'Camera ' + (i + 1); sel.appendChild(o); });
+      if (cur) sel.value = cur;
+    });
+  }
+  function start() {
+    stop();
+    var r = $('resSel').value.split('x'), v = { width: { ideal: +r[0] }, height: { ideal: +r[1] } };
+    if ($('camSel').value) v.deviceId = { exact: $('camSel').value }; else v.facingMode = 'user';
+    navigator.mediaDevices.getUserMedia({ video: v, audio: false }).then(function (s) {
+      stream = s; video.srcObject = s; return video.play();
+    }).then(function () {
+      $('bStart').disabled = true; $('bStop').disabled = false; $('bCollect').disabled = false; listCams();
+      pass = 0; passAt = Date.now(); var g = ++run; loopQ = setTimeout(function () { qrLoop(g); }, 200);
+    }).catch(function (e) { $('big').className = 'bad'; $('big').textContent = 'Camera error: ' + (e && e.name || e); });
+  }
+  function stop() {
+    run++; clearTimeout(loopQ);
+    if (stream) stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; video.srcObject = null;
+    octx.clearRect(0, 0, ov.width, ov.height);
+    $('bStart').disabled = false; $('bStop').disabled = true; $('bCollect').disabled = true; render(); camInfo();
+  }
+  $('bStart').onclick = start; $('bStop').onclick = stop;
+  $('camSel').onchange = function () { if (stream) start(); }; $('resSel').onchange = function () { if (stream) start(); };
+
+  function sizeOv() { var w = video.videoWidth, h = video.videoHeight; if (ov.width !== w || ov.height !== h) { ov.width = w; ov.height = h; } }
+  function poly(pts, col) { if (!pts || !pts.length) return; octx.strokeStyle = col; octx.lineWidth = Math.max(4, ov.width / 150); octx.beginPath(); octx.moveTo(pts[0].x, pts[0].y); for (var i = 1; i < pts.length; i++) octx.lineTo(pts[i].x, pts[i].y); octx.closePath(); octx.stroke(); }
+  function eng(name) { return Q.engines[name] = Q.engines[name] || { tries: 0, hits: 0, ms: 0 }; }
+  function hit(name, text, ms, pts) { var e = eng(name); e.hits++; e.ms = ms; Q.text = String(text).trim().toUpperCase(); Q.engine = name; Q.at = Date.now(); Q.pts = pts; }
+  var CORN = ['topLeftCorner', 'topRightCorner', 'bottomRightCorner', 'bottomLeftCorner'];
+
+  // Engines take turns (one per pass) so each gets the same number of tries and the page stays responsive.
+  var ENGINES = [
+    { n: 'jsQR whole frame', crop: [0, 0, 1, 1], max: 1000, opt: 'dontInvert' },
+    { n: 'jsQR centre zoom', crop: [0.2, 0.2, 0.6, 0.6], max: 900, opt: 'dontInvert' },
+    { n: 'jsQR mirrored', crop: [0, 0, 1, 1], max: 1000, opt: 'dontInvert', flip: true },
+    { n: 'jsQR inverted', crop: [0, 0, 1, 1], max: 1000, opt: 'onlyInvert' },
+    { n: 'jsQR small (fast)', crop: [0, 0, 1, 1], max: 480, opt: 'dontInvert' }
+  ];
+  function runEngine(E, vw, vh) {
+    var sx = vw * E.crop[0], sy = vh * E.crop[1], sw = vw * E.crop[2], sh = vh * E.crop[3], k = Math.min(1, E.max / sw), w = Math.round(sw * k), h = Math.round(sh * k);
+    work.width = w; work.height = h; wctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (E.flip) { wctx.translate(w, 0); wctx.scale(-1, 1); }
+    wctx.drawImage(video, sx, sy, sw, sh, 0, 0, w, h); wctx.setTransform(1, 0, 0, 1, 0, 0);
+    var img = wctx.getImageData(0, 0, w, h), e = eng(E.n), t0 = performance.now(); e.tries++;
+    var q = jsQR(img.data, w, h, { inversionAttempts: E.opt });
+    if (q && q.data) {
+      var pts = CORN.map(function (c) { var x = q.location[c].x, y = q.location[c].y; if (E.flip) x = w - x; return { x: sx + x / k, y: sy + y / k }; });
+      hit(E.n, q.data, Math.round(performance.now() - t0), pts);
+    } else e.ms = Math.round(performance.now() - t0);
+  }
+  function qrLoop(g) {
+    if (g !== run || !stream) return;
+    var next = function () { if (g === run) loopQ = setTimeout(function () { qrLoop(g); }, 40); };
+    if (video.readyState < 2 || !video.videoWidth) { next(); return; }
+    try {
+      sizeOv(); var vw = video.videoWidth, vh = video.videoHeight;
+      octx.clearRect(0, 0, ov.width, ov.height);
+      pctx.drawImage(video, vw * .2, vh * .2, vw * .6, vh * .6, 0, 0, 160, 120);
+      var d = pctx.getImageData(0, 0, 160, 120).data, gr = new Float32Array(19200), sum = 0, i;
+      for (i = 0; i < 19200; i++) { gr[i] = d[i * 4] * .3 + d[i * 4 + 1] * .59 + d[i * 4 + 2] * .11; sum += gr[i]; }
+      var lap = 0, n = 0;
+      for (var y = 1; y < 119; y++) for (var x = 1; x < 159; x++) { var l = 4 * gr[y * 160 + x] - gr[y * 160 + x - 1] - gr[y * 160 + x + 1] - gr[(y - 1) * 160 + x] - gr[(y + 1) * 160 + x]; lap += l * l; n++; }
+      Lt.light = Math.round(sum / 19200); Lt.focus = Math.round(Math.sqrt(lap / n) * 3);
+      if (window.jsQR) runEngine(ENGINES[pass % ENGINES.length], vw, vh);
+    } catch (e) { $('big').className = 'bad'; $('big').textContent = 'Scan error: ' + (e && e.message || e); }
+    pass++;
+    var now = Date.now(); if (now - passAt > 2000) fps = Math.round(pass * 1000 / (now - passAt));
+    function finish() {
+      if (Date.now() - Q.at < 1500 && Q.pts) poly(Q.pts, CARD_RE.test(Q.text) ? '#3ddc84' : '#ff6b6b');
+      render(); camInfo(); next();
+    }
+    if (bd && pass % 2) {
+      var t0 = performance.now(), e = eng('Built-in reader'); e.tries++;
+      bd.detect(video).then(function (c) { if (c && c[0] && c[0].rawValue) hit('Built-in reader', c[0].rawValue, Math.round(performance.now() - t0), c[0].cornerPoints); }).catch(function () { }).then(finish);
+    } else finish();
+  }
+
+  function ts() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2); }
+  $('bCollect').onclick = function () {
+    var f = Date.now() - Q.at < 3000;
+    rows.push({ t: ts(), card: f ? Q.text : '', eng: f ? Q.engine : '', light: Lt.light, focus: Lt.focus }); drawLog();
+  };
+  function drawLog() {
+    var h = '<tr><th>Time</th><th>QR text</th><th>Read by</th><th>Light</th><th>Focus</th></tr>';
+    rows.forEach(function (r) { h += '<tr><td>' + r.t + '</td><td>' + esc(r.card || 'NOT READ') + '</td><td>' + esc(r.eng || '—') + '</td><td>' + r.light + '</td><td>' + r.focus + '</td></tr>'; });
+    $('log').innerHTML = h;
+  }
+  $('bClear').onclick = function () { rows = []; drawLog(); Q.engines = {}; pass = 0; passAt = Date.now(); };
+  $('bCopy').onclick = function () {
+    var t = stream && stream.getVideoTracks()[0], s = t ? t.getSettings() : {};
+    var txt = 'PPA Clock QR scanner report ' + new Date().toISOString() + '\nCamera: ' + (t ? t.label : '-') + ' ' + s.width + 'x' + s.height + ' ' + (s.frameRate || '') + 'fps\nBuilt-in QR: ' + bdName + '\nPasses: ' + pass + ' (' + fps + '/s)\nEngines: ' +
+      Object.keys(Q.engines).map(function (k) { return k + ' ' + Q.engines[k].hits + '/' + Q.engines[k].tries; }).join('; ') + '\nLight ' + Lt.light + ' Focus ' + Lt.focus + '\n' +
+      rows.map(function (r) { return [r.t, r.card || 'NOT READ', r.eng, 'light ' + r.light, 'focus ' + r.focus].join(' | '); }).join('\n');
+    try { navigator.clipboard.writeText(txt).then(function () { $('bCopy').textContent = 'Copied ✔'; setTimeout(function () { $('bCopy').textContent = 'Copy report'; }, 1500); }); } catch (e) { prompt('Copy this report:', txt); }
+  };
+  render(); camInfo(); drawLog();
+})();
+</script>
+</body>
+</html>
