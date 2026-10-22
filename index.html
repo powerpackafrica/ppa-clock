@@ -190,7 +190,7 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
 <script>
 (function () {
   'use strict';
-  var APP_VER = '2026-10-21-1';
+  var APP_VER = '2026-10-22-1';
   var API = 'https://script.google.com/macros/s/AKfycbzqY-Si-Drz7B-MAsT0hWSx8NWF6hUU46ibuscemGgY6-Yzn2uvHhXAkkpHb3YpDYpr/exec';
   var MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/';
   var CARD_RE = /^PPA\d{6}-[A-Z2-9]{4}$/;
@@ -371,6 +371,7 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
     try { var c = document.createElement('canvas'), vw = video.videoWidth, vh = video.videoHeight; if (!vw) return ''; c.width = 320; c.height = Math.round(320 * vh / vw); c.getContext('2d').drawImage(video, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', 0.6); } catch (e) { return ''; }
   }
   var lastCode = '', lastCodeAt = 0, scanN = 0, bd = null, bdBusy = false;
+  var SCAN_ENG = [{ c: [0.2, 0.2, 0.6, 0.6], max: 900 }, { c: [0, 0, 1, 1], max: 1000 }, { sq: 1, max: 800 }, { c: [0.2, 0.2, 0.6, 0.6], max: 900 }, { c: [0, 0, 1, 1], max: 1000, flip: 1 }];
   try { if ('BarcodeDetector' in window) BarcodeDetector.getSupportedFormats().then(function (f) { if (f.indexOf('qr_code') >= 0) bd = new BarcodeDetector({ formats: ['qr_code'] }); }).catch(function () { }); } catch (e) { }
   // the yellow square on screen, mapped to video pixels (video is mirrored), with 35% margin around it
   function scanRect() {
@@ -391,8 +392,13 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
       return;
     }
     if (!window.jsQR) return;
-    var r = scanRect() || { x: 0, y: 0, w: video.videoWidth, h: video.videoHeight }, k = Math.min(1, 800 / r.w), w = Math.round(r.w * k), h = Math.round(r.h * k);
-    cv.width = w; cv.height = h; cx.drawImage(video, r.x, r.y, r.w, r.h, 0, 0, w, h);
+    // jsQR passes take turns (field test on the tablet: centre zoom read best, whole frame and mirrored also work, inverted never)
+    var vw = video.videoWidth, vh = video.videoHeight, E = SCAN_ENG[scanN % SCAN_ENG.length], r, flip = !!E.flip, max = E.max;
+    if (E.sq) r = scanRect() || { x: 0, y: 0, w: vw, h: vh }; else r = { x: vw * E.c[0], y: vh * E.c[1], w: vw * E.c[2], h: vh * E.c[3] };
+    var k = Math.min(1, max / r.w), w = Math.round(r.w * k), h = Math.round(r.h * k);
+    cv.width = w; cv.height = h; cx.setTransform(1, 0, 0, 1, 0, 0);
+    if (flip) { cx.translate(w, 0); cx.scale(-1, 1); }
+    cx.drawImage(video, r.x, r.y, r.w, r.h, 0, 0, w, h); cx.setTransform(1, 0, 0, 1, 0, 0);
     var q = jsQR(cx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
     if (q && q.data) { $('sqCard').classList.add('ok'); setTimeout(function () { $('sqCard').classList.remove('ok'); }, 600); gotCode(q.data); }
   }
