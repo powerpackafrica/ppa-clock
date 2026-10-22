@@ -70,13 +70,14 @@ td,th{padding:4px 6px;border-bottom:1px solid #fff1;text-align:left}
   var P = 'ppa_clock_', MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/', CARD_RE = /^PPA\d{6}-[A-Z2-9]{4}$/;
   function $(i) { return document.getElementById(i); }
   function lsGet(k, d) { try { var v = localStorage.getItem(P + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
-  $('ver').textContent = 'scanner 2026-10-21-1';
+  $('ver').textContent = 'scanner 2026-10-22-1';
   var key = lsGet('key', '');
   if (!key) { $('deny').style.display = 'block'; $('app').style.display = 'none'; return; }
 
+  window.addEventListener('error', function (e) { var b = $('big'); b.className = 'bad'; b.textContent = 'Page error: ' + (e.message || e); });
   var video = $('video'), ov = $('ov'), octx = ov.getContext('2d'), stream = null, loopQ = 0, loopF = 0, run = 0;
   var work = document.createElement('canvas'), wctx = work.getContext('2d', { willReadFrequently: true });
-  var bd = null, bdName = 'not available on this browser';
+  var bd = null, bdName = 'not on this tablet (normal) - jsQR is used instead';
   try { if ('BarcodeDetector' in window) BarcodeDetector.getSupportedFormats().then(function (f) { if (f.indexOf('qr_code') >= 0) { bd = new BarcodeDetector({ formats: ['qr_code'] }); bdName = 'available'; } else bdName = 'no QR support'; }).catch(function () { }); } catch (e) { }
   var Q = { text: '', engine: '', ms: 0, at: 0, tries: 0, hits: 0, pts: null, engines: {} };
   var Fc = { n: 0, score: 0, pct: 0, name: '', dist: null, at: 0, ms: 0, seen: 0, tries: 0 }, Lt = { light: 0, focus: 0 }, rows = [];
@@ -90,7 +91,7 @@ td,th{padding:4px 6px;border-bottom:1px solid #fff1;text-align:left}
     var eng = Object.keys(Q.engines).map(function (k) { var e = Q.engines[k]; return kv(k, e.hits + ' / ' + e.tries + (e.ms ? ' · ' + e.ms + ' ms' : ''), e.hits ? 'ok' : 'mut'); }).join('');
     $('qr').innerHTML = kv('Last card text', Q.text ? esc(Q.text) : '—', valid ? 'ok' : (Q.text ? 'bad' : 'mut')) +
       kv('PPA card format', Q.text ? (valid ? 'valid · ' + esc(Q.text.slice(0, 9)) : 'NOT a PPA card') : '—', valid ? 'ok' : (Q.text ? 'bad' : 'mut')) +
-      kv('Read by', Q.engine || '—') + kv('Last read', age(Q.at)) + kv('Built-in QR reader', bdName, bd ? 'ok' : 'bad') + eng;
+      kv('Read by', Q.engine || '—') + kv('Last read', age(Q.at)) + kv('Built-in QR reader', bdName, bd ? 'ok' : 'mut') + eng;
     var fs = faceDb();
     $('face').innerHTML = kv('Models', modelsState === 2 ? 'ready' : modelsState === 1 ? 'loading…' : 'not loaded', modelsState === 2 ? 'ok' : 'mut') +
       kv('Faces in view', Fc.n, Fc.n ? 'ok' : 'mut') + kv('Detection score', Fc.n ? Fc.score.toFixed(2) : '—') + kv('Face height (of frame)', Fc.n ? Math.round(Fc.pct * 100) + ' %' : '—') +
