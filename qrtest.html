@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>PPA QR test sheet</title>
+<style>
+body{margin:0;background:#fff;color:#111;font:14px/1.4 Arial,sans-serif;padding:16px}
+h1{font-size:18px;margin:0 0 4px}
+p{margin:4px 0 14px;color:#444}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end}
+.q{text-align:center}
+.q svg{display:block;background:#fff;padding:4mm}
+.q b{display:block;margin-top:4px}
+button{padding:10px 16px;font-size:15px}
+@media print{button{display:none}}
+</style>
+</head>
+<body>
+<h1>PPA QR test sheet</h1>
+<p>Test code only (not a real card). Print at 100% and show each square to the scanner page, or hold the tablet camera to this screen. The sizes below are exact when printed.</p>
+<button onclick="window.print()">Print</button>
+<div class="row" id="row"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+var T = 'PPA000000-TEST', out = '';
+[['L', 20], ['L', 30], ['L', 45], ['M', 25]].forEach(function (c) {
+  var q = qrcode(0, c[0]); q.addData(T); q.make();
+  out += '<div class="q">' + q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }).replace('<svg ', '<svg style="width:' + c[1] + 'mm;height:' + c[1] + 'mm" ') + '<b>' + c[1] + ' mm · level ' + c[0] + ' · ' + q.getModuleCount() + ' modules</b></div>';
+});
+document.getElementById('row').innerHTML = out;
+</script>
+</body>
+</html>
