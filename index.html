@@ -92,6 +92,12 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
 #adm button,#adm select{background:#0e1d2d;color:#fff;border:1px solid var(--line);border-radius:.5rem;padding:.35rem .7rem;margin:2px;font-size:.9rem}
 #adm table{width:100%;border-collapse:collapse}#adm td{padding:3px 4px;border-bottom:1px solid rgba(214,165,70,.25)}
 .dim #wrap{opacity:.12}
+/* standby: only the time on a black screen */
+#sb{display:none;position:fixed;inset:0;z-index:100;background:#000;flex-direction:column;align-items:center;justify-content:center;color:var(--gold);cursor:pointer}
+body.standby #sb{display:flex}
+#sb .sbw{text-align:center;transition:transform 2s}
+#sb b{display:block;font-size:min(20vw,32vh);font-weight:300;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+#sb span{display:block;margin-top:2vh;font-size:min(4.5vw,6vh);letter-spacing:.25em;color:var(--goldtxt);opacity:.8}
 
 /* tablet lying down: fit more height */
 @media (orientation:landscape){html{font-size:clamp(11px,1.8vmin,22px)}}
@@ -184,19 +190,19 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
     <label style="display:flex;gap:10px;align-items:flex-start;margin:12px 0;font-weight:600"><input type="checkbox" id="consentChk" style="width:24px;height:24px;flex:none"> I have read this notice and I agree that Power Pack Africa may capture my face template and clock-in photos for the purposes above.</label>
     <div style="display:flex;gap:10px;justify-content:flex-end"><button id="consentNo" style="padding:12px 18px;font-size:16px">Cancel</button><button id="consentYes" disabled style="padding:12px 18px;font-size:16px;font-weight:700;background:#c9a24a;border:0;border-radius:8px;color:#10183a;opacity:.5">I agree, continue</button></div>
   </div>
-</div><canvas id="cv" width="640" height="480" hidden></canvas>
+</div><div id="sb"><div class="sbw" id="sbw"><b id="sbTime">--:--:--</b><span id="sbDate"></span></div></div><canvas id="cv" width="640" height="480" hidden></canvas>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
 <script>
 (function () {
   'use strict';
-  var APP_VER = '2026-10-22-1';
+  var APP_VER = '2026-10-23-1';
   var API = 'https://script.google.com/macros/s/AKfycbzqY-Si-Drz7B-MAsT0hWSx8NWF6hUU46ibuscemGgY6-Yzn2uvHhXAkkpHb3YpDYpr/exec';
   var MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/';
   var CARD_RE = /^PPA\d{6}-[A-Z2-9]{4}$/;
   var P = 'ppa_clock_';
   var DUP_MS = 60000, STALE_MS = 16 * 3600 * 1000, SYNC_MAX = 12 * 3600 * 1000;
-  var MODE_MS = 8000, FACE_MODE_MS = 12000, CAM_KEEP_MS = 15000, SWITCH_MS = 5000, SLEEP_MS = 60000, NET_MS = 25000;
+  var MODE_MS = 8000, FACE_MODE_MS = 12000, CAM_KEEP_MS = 15000, SWITCH_MS = 5000, SLEEP_MS = 120000, NET_MS = 25000;
   var FACE_THR = 0.4, FACE_GAP = 0.12;
 
   function $(id) { return document.getElementById(id); }
@@ -283,7 +289,13 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
     $('clock').textContent = hms(d);
     $('date').textContent = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][d.getDay()] + ', ' + dayKey(d);
     $('inSub').textContent = pad(h) + ':' + pad(d.getMinutes()) + ' · ' + (h >= 5 && h < 12 ? 'Good morning' : h >= 12 && h < 17 ? 'Good afternoon' : 'Good evening');
-    document.body.classList.toggle('dim', !mode && !busy && Date.now() - lastTouch > SLEEP_MS);
+    var sb = !mode && !busy && !enrolling && $('res').style.display !== 'flex' && $('consent').style.display !== 'flex' && Date.now() - lastTouch > SLEEP_MS;
+    document.body.classList.toggle('standby', sb);
+    if (sb) {
+      $('sbTime').textContent = hms(d);
+      $('sbDate').textContent = $('date').textContent;
+      var mn = d.getMinutes(); $('sbw').style.transform = 'translate(' + ((mn % 5) - 2) * 1.2 + 'vw,' + ((Math.floor(mn / 5) % 5) - 2) * 1.2 + 'vh)';   // tiny drift against screen burn-in
+    }
     if (mode && !busy && !enrolling) {
       var lim = faceSeen ? FACE_MODE_MS : MODE_MS, left = Math.max(0, Math.ceil((lim - (Date.now() - modeAt)) / 1000));
       if (Date.now() - modeAt > lim) { setMode(null); fail('Not clocked: no card or face detected', 'Please tap Clock in or Clock out and try again'); }
@@ -291,7 +303,13 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
     }
   }
   setInterval(tick, 500);
-  ['pointerdown', 'keydown'].forEach(function (e) { document.addEventListener(e, function () { lastTouch = Date.now(); }, true); });
+  var wakeAt = 0;
+  ['pointerdown', 'keydown'].forEach(function (e) { document.addEventListener(e, function () {
+    if (document.body.classList.contains('standby')) { document.body.classList.remove('standby'); wakeAt = Date.now(); }
+    lastTouch = Date.now();
+  }, true); });
+  // the tap that wakes the screen must not press a button underneath
+  ['click', 'pointerup', 'touchend'].forEach(function (e) { document.addEventListener(e, function (ev) { if (Date.now() - wakeAt < 700) { ev.stopPropagation(); ev.preventDefault(); } }, true); });
 
   // ---- sounds / voice ----
   var actx = null;
