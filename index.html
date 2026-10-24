@@ -273,7 +273,7 @@ body.standby #sb{display:flex}
 <script>
 (function () {
   'use strict';
-  var APP_VER = '2026-10-24-3';
+  var APP_VER = '2026-10-24-4';
   var API = 'https://script.google.com/macros/s/AKfycbzqY-Si-Drz7B-MAsT0hWSx8NWF6hUU46ibuscemGgY6-Yzn2uvHhXAkkpHb3YpDYpr/exec';
   var MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/';
   var CARD_RE = /^PPA\d{6}-[A-Z2-9]{4}$/;
@@ -321,7 +321,7 @@ body.standby #sb{display:flex}
     return post({ action: 'sync' }).then(function (r) {
       if (!r.ok) { if (r.code === 'KEY') { $('nokey').style.display = 'block'; } return; }
       net(true);
-      lsSet('sync', { cards: r.cards, last: r.last || {}, pepper: r.pepper, at: Date.now() });
+      lsSet('sync', { cards: r.cards, last: r.last || {}, pepper: r.pepper, at: Date.now(), hols: r.hols || null });
       if (String(r.faceVer) !== String(faceDb().ver)) return loadFaces(r.faceVer);
     }).then(flush).catch(function () { net(false); });
   }
@@ -614,7 +614,7 @@ body.standby #sb{display:flex}
       say: (function (n) { return 'Wow! ' + n + ', ' + n + ', ' + n + '! Lucky time, ' + name + '! Make a wish!'; })(Number(lucky.slice(0, 2)) || 'zero'),
       tune: [[1319, 110], [1568, 110], [1760, 110], [2093, 110], [1760, 110], [2093, 160], [2637, 600]] };
     // 2026-10-24 holidays (shared module holiday_fx, same file as the PTE clock): wins over VIP
-    else if (window.HFX && HFX.today()) { luckyStop(); HFX.party(type, name); return; }
+    else if (window.HFX && HFX.today()) { luckyStop(); HFX.party(type, name, id); return; }
     else if ((v = VIP[String(id || '').toUpperCase()] || VIP[VIP_TEST])) o = { theme: v.theme, title: v[k].title, name: v.name, ms: v.ms, cols: v.cols, wish: v[k].wish, say: v[k].say, tune: v.tune };
     else return;
     luckyStop();
@@ -811,7 +811,7 @@ body.standby #sb{display:flex}
   window.__ppaClock = { clock: clock, sync: sync, queue: queue };   // for tests
 })();
 </script>
-<script>window.HFX_CFG = { header: '.hd', tag: '.tag', brand: 'PPA', delay: 2200 };</script>
+<script>window.HFX_CFG = { header: '.hd', tag: '.tag', brand: 'PPA', delay: 2200, hols: function () { try { return (JSON.parse(localStorage.getItem('ppa_clock_sync')) || {}).hols || {}; } catch (e) { return {}; } } };</script>
 <!-- HOLIDAY FX START (共用模組：PTE 打卡 _tools\clock、PPA 打卡 ppa-clock 兩邊放同一份，改這裡再跑 inject.js；不要直接改頁面裡的這段) -->
 <!-- 2026-10-24 Alan：節日當天版面要不一樣（跟看板網頁一樣）＋打卡節日動畫；史瓦帝尼國定假日都要；PPA、PTE 同步。
      版面：標題列下方換成節日色條、右邊掛彩旗、標語換節日問候（前面加小圖示）、整頁飄雪／彩紙／星光（安靜的節日只有柔光）。
@@ -993,9 +993,17 @@ window.HFX = (function () {
         l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), mo = Math.floor((h + l - 7 * m + 114) / 31);
     return new Date(y, mo - 1, ((h + l - 7 * m + 114) % 31) + 1);
   }
+  // 10/24 Alan：讀人資表 Public Holidays（頁面設定 C.hols 回傳 { 'yyyy-MM-dd': 名稱 }，PTE 由打卡後端同步帶來）。表上有的日子以表為準
+  function sheetHols() { try { return (C.hols && C.hols()) || {}; } catch (e) { return {}; } }
+  var NAME_RX = [[/umhlanga|reed/i, 'reed'], [/incwala/i, 'incwala'], [/independ|somhlolo/i, 'indep'], [/flag/i, 'flag'], [/sobhuza/i, 'sobhuza'],
+                 [/king|mswati|birthday/i, 'king'], [/good\s*friday/i, 'goodfri'], [/easter/i, 'easter'], [/ascension/i, 'ascension'],
+                 [/christmas/i, 'xmas'], [/boxing/i, 'boxing'], [/new\s*year/i, 'ny'], [/worker|may\s*day|labou?r/i, 'work']];
+  function nameId(n) { for (var j = 0; j < NAME_RX.length; j++) if (NAME_RX[j][0].test(n)) return NAME_RX[j][1]; return 'flag'; }   // 認不出名稱的國定假日：國旗
   function idFor(d) {
     var key = dayKey(d);
     if (HOL_DATES[key]) return HOL_DATES[key];
+    var sh = sheetHols()[key];
+    if (sh) return nameId(sh);
     var off = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - easterOf(d.getFullYear())) / 864e5);
     if (off === -2) return 'goodfri';
     if (off === 0 || off === 1) return 'easter';
@@ -1023,11 +1031,41 @@ window.HFX = (function () {
     calm: '<svg class="hfx-ic" viewBox="0 0 30 20"><path d="M15 12 C11 7 6 6 2 7 C6 8 9 10 10 13 C14 13 20 12 27 9 C23 9 20 8 19 7 C21 4 24 2 28 1 C22 1 18 4 15 12 Z" fill="#e6ecff"/></svg>',
     cny: '<svg class="hfx-ic" viewBox="0 0 30 20"><ellipse cx="15" cy="10" rx="7" ry="8" fill="#e0242f"/><rect x="12" y="1" width="6" height="2" fill="#ffd27a"/><rect x="12" y="17" width="6" height="2" fill="#ffd27a"/></svg>'
   };
+  function baseDate() {   // 今天（測試 ?hol=2026-12-24 時用那天）
+    if (/^\d{4}-\d\d-\d\d$/.test(TEST)) { var p = TEST.split('-'); return new Date(+p[0], +p[1] - 1, +p[2], 9); }
+    return new Date();
+  }
+  // 放假的日子：人資表上的假日、國定假日規則（平安夜、跨年夜、農曆新年照常上班），週日的國定假日週一補假
+  var OFF = { indep: 1, king: 1, flag: 1, sobhuza: 1, incwala: 1, reed: 1, work: 1, xmas: 1, boxing: 1, ny: 1, goodfri: 1, easter: 1, ascension: 1 };
+  function isOff(d) {
+    if (sheetHols()[dayKey(d)] || OFF[idFor(d)]) return true;
+    return d.getDay() === 1 && !!OFF[idFor(new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1, 9))];
+  }
+  // 10/24 Alan：下班打卡時，如果接下來有國定假日，提醒哪天回來上班
+  function backInfo() {
+    var t = baseDate(), hol = false, tomorrowOff = false;
+    for (var k = 1; k <= 14; k++) {
+      var dk = new Date(t.getFullYear(), t.getMonth(), t.getDate() + k, 9), wk = dk.getDay() === 0 || dk.getDay() === 6;
+      if (isOff(dk)) { hol = true; if (k === 1) tomorrowOff = true; continue; }
+      if (wk) continue;
+      if (!hol) return null;
+      var day = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dk.getDay()];
+      var mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][dk.getMonth()];
+      return { day: day, txt: (tomorrowOff ? 'Holiday tomorrow' : 'Long weekend ahead') + ' · see you on ' + day + ' ' + dk.getDate() + ' ' + mon };
+    }
+    return null;
+  }
   function today() {
-    var d = new Date(), id = '';
-    if (/^\d{4}-\d\d-\d\d$/.test(TEST)) { var p = TEST.split('-'); d = new Date(+p[0], +p[1] - 1, +p[2], 9); }
-    else if (TEST) id = TEST.toLowerCase();
+    var d = baseDate(), id = '';
+    if (TEST && !/^\d{4}-\d\d-\d\d$/.test(TEST)) id = TEST.toLowerCase();
     id = id || idFor(d);
+    // 10/24 Alan：節日當天多半不上班，所以節日前最後一個上班日（中間只隔週末）也顯示，字樣寫 TOMORROW／ON MONDAY
+    var pre = 0;
+    if (!id) for (var k = 1; k <= 4; k++) {
+      var dk = new Date(d.getFullYear(), d.getMonth(), d.getDate() + k, 9), ik = idFor(dk);
+      if (ik) { id = ik; pre = k; d = dk; break; }
+      if (dk.getDay() !== 0 && dk.getDay() !== 6) break;
+    }
     var y = d.getFullYear(), brand = C.brand || 'the team', H = {
       indep:   { t: 'sz', title: 'HAPPY INDEPENDENCE DAY', wish: 'Somhlolo Day · Eswatini independent since 1968 · ' + (y - 1968) + ' years',
                  say: 'Happy Independence Day! Eswatini, ' + (y - 1968) + ' years of independence!', tag: 'HAPPY INDEPENDENCE DAY<br>SOMHLOLO DAY · ESWATINI' },
@@ -1043,7 +1081,7 @@ window.HFX = (function () {
                  say: 'Happy Umhlanga! Celebrating the Reed Dance.', tag: 'UMHLANGA REED DANCE<br>ESWATINI HERITAGE' },
       work:    { t: 'work', title: "HAPPY WORKERS' DAY", wish: 'Thank you for building ' + brand + ' every day', cols: ['#ffd27a', '#5fd394', '#ffffff', '#7fc8ff', '#ffb238'],
                  say: "Happy Workers' Day! Thank you for all your hard work!", tag: "HAPPY WORKERS' DAY<br>THANK YOU, TEAM " + brand },
-      eve:     { t: 'xmas', title: 'MERRY CHRISTMAS', wish: "It's Christmas Eve · peace and joy to your family", snow: 1,
+      eve:     { t: 'xmas', title: 'MERRY CHRISTMAS', wish: 'Christmas Eve · peace and joy to your family', snow: 1,
                  say: 'Merry Christmas!', tag: 'MERRY CHRISTMAS<br>CHRISTMAS EVE' },
       xmas:    { t: 'xmas', title: 'MERRY CHRISTMAS', wish: 'Peace and joy to you and your family', snow: 1,
                  say: 'Merry Christmas!', tag: 'MERRY CHRISTMAS<br>PEACE AND JOY' },
@@ -1065,6 +1103,11 @@ window.HFX = (function () {
     }[id];
     if (!H) return null;
     H.id = id;
+    if (pre) {
+      var day = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()], when = pre === 1 ? 'Tomorrow' : 'On ' + day;
+      H.pre = pre; H.tag = H.tag.split('<br>')[0] + '<br>' + when.toUpperCase();
+      H.wish = when + ' · ' + H.wish; H.say += H.t === 'calm' ? ' Have a peaceful holiday.' : ' Enjoy the holiday!';
+    }
     if (!H.cols) H.cols = H.t === 'xmas' ? ['#ffffff', '#ff4d5e', '#5fd394', '#ffd27a', '#e6f4ff'] : H.t === 'ny' ? ['#ffd27a', '#f3dfb3', '#ffffff', '#5fd394', '#ff8fb1', '#7fc8ff']
                      : H.t === 'calm' ? ['#ffffff', '#dfe6ff'] : SZ;
     return H;
@@ -1135,8 +1178,18 @@ window.HFX = (function () {
     el.className = ''; var cv = el.querySelector('canvas'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
   }
   // 回傳 true＝今天是節日、動畫已開始（頁面就不再跑 VIP）
-  function party(type, name) {
+  // 10/24 Alan：早上尖峰不要太吵 → 動畫每次都跑，語音和音樂每人每天上班、下班各只播一次（記在這台平板）
+  function firstTime(who, type) {
+    try {
+      var o = JSON.parse(localStorage.getItem('hfx_said') || '{}'), d = dayKey(baseDate()), k = who + '|' + type;
+      if (o.d !== d) o = { d: d, s: {} };
+      if (o.s[k]) return false;
+      o.s[k] = 1; localStorage.setItem('hfx_said', JSON.stringify(o)); return true;
+    } catch (e) { return true; }
+  }
+  function party(type, name, id) {
     var h = today(); if (!h) return false;
+    var back = type === 'OUT' ? backInfo() : null, speak = firstTime(id || name, type);
     stop();
     var el = document.getElementById('hfx'), cv = el.querySelector('canvas'), hb = el.querySelector('.hb'), ms = 7500, th = ' t-' + h.t;
     hb.innerHTML = ''; hb.style.fontSize = Math.round(Math.min(92, innerWidth * .09, innerWidth * .9 / (h.title.length * .7))) + 'px';
@@ -1146,7 +1199,7 @@ window.HFX = (function () {
       s.style.animationDelay = (0.25 + i * 0.07) + 's,' + (1.4 + i * 0.09) + 's'; hb.appendChild(s);
     });
     el.querySelector('.nm').textContent = name + '!';
-    el.querySelector('.wish').textContent = h.wish;
+    el.querySelector('.wish').textContent = back ? back.txt : h.wish;
     if (h.year) el.querySelector('.e-ny .yr').textContent = h.year;
     el.className = th; void el.offsetWidth; el.className = 'on' + th;
     cv.width = innerWidth; cv.height = innerHeight;
@@ -1164,11 +1217,11 @@ window.HFX = (function () {
     later(step, 33);   // setTimeout 不用 requestAnimationFrame：畫面沒在繪製時 rAF 會停
     later(function () { el.className = 'on out' + th; }, ms - 700);
     later(stop, ms);
-    // 頁面原本的歡迎語音念完名字後，接英文節日語音，再彈一小段音樂
-    later(function () {
+    // 頁面原本的歡迎語音念完名字後，接英文節日語音，再彈一小段音樂（每人每天上班、下班各一次）
+    if (speak) later(function () {
       var done = false, next = function () { if (done) return; done = true; utt = null; tune(TUNE[h.t]); };
       try {
-        var u = new SpeechSynthesisUtterance(h.say + (type === 'IN' ? ' Welcome, ' : ' Thank you, ') + name + '!'), v = C.voice && C.voice();
+        var u = new SpeechSynthesisUtterance(h.say + (type === 'IN' ? ' Welcome, ' : ' Thank you, ') + name + '!' + (back ? ' See you on ' + back.day + '!' : '')), v = C.voice && C.voice();
         if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-GB';
         u.rate = .95; u.onend = next; u.onerror = next; utt = u; speechSynthesis.speak(u);
       } catch (e) { }
@@ -1217,7 +1270,7 @@ window.HFX = (function () {
   setTimeout(decor, 1500);   // 字型載入後標題列高度可能變
   setInterval(decor, 10 * 60 * 1000);   // 過午夜自動換（或換回平常）
   addEventListener('resize', function () { setTimeout(decor, 200); });
-  return { party: party, stop: stop, today: today, idFor: idFor, decor: decor };
+  return { party: party, stop: stop, today: today, idFor: idFor, decor: decor, backInfo: backInfo, isOff: isOff };
 })();
 </script>
 <!-- HOLIDAY FX END -->
