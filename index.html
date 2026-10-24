@@ -120,6 +120,35 @@ body.standby #sb{display:flex}
   .hint{padding:1.8rem 1rem}
   #res{inset:.6rem 1.2rem}
 }
+/* Hidden egg (2026-10-24): clock time with hh = mm = ss (05:05:05, 11:11:11 ...) shows a lucky slot machine. Never blocks taps. */
+#lk{position:fixed;inset:0;z-index:98;pointer-events:none;display:none;opacity:0;transition:opacity .4s;background:radial-gradient(ellipse at 50% 38%,rgba(10,22,40,.72),rgba(5,11,22,.94));overflow:hidden}
+#lk.on{display:block;opacity:1}
+#lk.out{opacity:0;transition:opacity .7s}
+#lk canvas{position:absolute;inset:0;width:100%;height:100%}
+#lk .beams{position:absolute;left:50%;top:-10%;width:160vmax;height:160vmax;margin-left:-80vmax;border-radius:50%;opacity:0;
+  background:conic-gradient(from 0deg,transparent 0 10deg,rgba(255,214,120,.18) 10deg 20deg,transparent 20deg 50deg,rgba(95,211,148,.16) 50deg 60deg,transparent 60deg 100deg,rgba(255,214,120,.18) 100deg 110deg,transparent 110deg 140deg,rgba(95,211,148,.16) 140deg 150deg,transparent 150deg 190deg,rgba(255,214,120,.18) 190deg 200deg,transparent 200deg 230deg,rgba(95,211,148,.16) 230deg 240deg,transparent 240deg 280deg,rgba(255,214,120,.18) 280deg 290deg,transparent 290deg 320deg,rgba(95,211,148,.16) 320deg 330deg,transparent 330deg)}
+#lk.on .beams{animation:lkSpin 10s linear infinite,lkFade .8s ease-out .2s forwards}
+#lk .stage{position:absolute;left:0;right:0;top:12%;display:flex;flex-direction:column;align-items:center;text-align:center}
+#lk svg{width:min(40vw,230px);height:auto;overflow:visible;filter:drop-shadow(0 0 26px rgba(255,214,120,.8))}
+#lk.on svg{animation:lkIn .9s cubic-bezier(.2,1.4,.4,1) .1s both}
+#lk .tw{transform-box:fill-box;transform-origin:50% 50%;animation:lkTw .5s ease-in-out infinite alternate}
+#lk .hb{margin-top:14px;font-weight:900;line-height:1.02;letter-spacing:1px;white-space:nowrap}
+#lk .hb span{display:inline-block;opacity:0;transform:translateY(-60px) scale(.4) rotate(-12deg);
+  background:linear-gradient(180deg,#fff6dc 0%,#f3dfb3 35%,#d8b878 60%,#b48f55 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 3px 0 rgba(90,60,20,.6)) drop-shadow(0 0 18px rgba(243,223,179,.55))}
+#lk.on .hb span{animation:lkLetter .6s cubic-bezier(.2,1.6,.4,1) forwards,lkWave 1.4s ease-in-out infinite}
+#lk .nm{margin-top:10px;font-size:clamp(34px,7vw,72px);font-weight:800;opacity:0;text-shadow:0 0 26px rgba(255,214,120,.85)}
+#lk.on .nm{animation:lkName .7s cubic-bezier(.2,1.5,.4,1) 1.9s forwards}
+#lk .wish{margin-top:8px;font-size:clamp(16px,2.6vw,24px);color:#f3dfb3;letter-spacing:2px;opacity:0}
+#lk.on .wish{animation:lkFade .6s ease-out 2.4s forwards}
+@keyframes lkSpin{to{transform:rotate(360deg)}}
+@keyframes lkFade{to{opacity:1}}
+@keyframes lkIn{0%{opacity:0;transform:translate(-55vw,-30vh) rotate(-30deg) scale(.4)}100%{opacity:1;transform:none}}
+@keyframes lkTw{0%{transform:scale(.6);opacity:.4}100%{transform:scale(1.15);opacity:1}}
+@keyframes lkLetter{to{opacity:1;transform:none}}
+@keyframes lkWave{50%{translate:0 -8px}}
+@keyframes lkName{0%{opacity:0;transform:scale(2.2)}100%{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){#lk.on .beams,#lk.on svg{animation:none;opacity:1}#lk.on .hb span{animation:lkLetter .01s forwards}}
 </style>
 </head>
 <body>
@@ -190,13 +219,31 @@ body.standby #sb{display:flex}
     <label style="display:flex;gap:10px;align-items:flex-start;margin:12px 0;font-weight:600"><input type="checkbox" id="consentChk" style="width:24px;height:24px;flex:none"> I have read this notice and I agree that Power Pack Africa may capture my face template and clock-in photos for the purposes above.</label>
     <div style="display:flex;gap:10px;justify-content:flex-end"><button id="consentNo" style="padding:12px 18px;font-size:16px">Cancel</button><button id="consentYes" disabled style="padding:12px 18px;font-size:16px;font-weight:700;background:#c9a24a;border:0;border-radius:8px;color:#10183a;opacity:.5">I agree, continue</button></div>
   </div>
-</div><div id="sb"><div class="sbw" id="sbw"><b id="sbTime">--:--:--</b><span id="sbDate"></span></div></div><canvas id="cv" width="640" height="480" hidden></canvas>
+</div><div id="sb"><div class="sbw" id="sbw"><b id="sbTime">--:--:--</b><span id="sbDate"></span></div></div><div id="lk" aria-hidden="true"><canvas></canvas><div class="beams"></div><div class="stage">
+  <svg viewBox="0 0 240 200">
+    <defs><linearGradient id="lkGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2c4"/><stop offset=".45" stop-color="#ffd27a"/><stop offset="1" stop-color="#b48f55"/></linearGradient></defs>
+    <rect x="40" y="6" width="140" height="34" rx="10" fill="#123a2a" stroke="#7a5a2a" stroke-width="3"/>
+    <text x="110" y="31" text-anchor="middle" font-size="20" font-weight="900" letter-spacing="2" fill="#ffd27a" font-family="Segoe UI,Arial,sans-serif">LUCKY</text>
+    <rect x="14" y="40" width="192" height="150" rx="22" fill="url(#lkGold)" stroke="#7a5a2a" stroke-width="3"/>
+    <rect x="32" y="62" width="156" height="76" rx="10" fill="#fffdf4" stroke="#7a5a2a" stroke-width="3"/>
+    <line x1="84" y1="62" x2="84" y2="138" stroke="#c9a94a" stroke-width="2"/><line x1="136" y1="62" x2="136" y2="138" stroke="#c9a94a" stroke-width="2"/>
+    <g font-size="40" font-weight="900" fill="#1f7a4a" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">
+      <text class="rl" x="58" y="115">00</text><text class="rl" x="110" y="115">00</text><text class="rl" x="162" y="115">00</text>
+    </g>
+    <rect x="62" y="156" width="96" height="16" rx="8" fill="#5a3f18"/>
+    <circle class="tw" cx="26" cy="54" r="4" fill="#fff"/><circle class="tw" style="animation-delay:.35s" cx="194" cy="54" r="4" fill="#fff"/>
+    <circle class="tw" style="animation-delay:.7s" cx="26" cy="178" r="4" fill="#fff"/><circle class="tw" style="animation-delay:1.05s" cx="194" cy="178" r="4" fill="#fff"/>
+    <rect x="206" y="80" width="10" height="44" rx="4" fill="#b48f55" stroke="#7a5a2a" stroke-width="2"/>
+    <circle cx="226" cy="74" r="11" fill="#ff5d73" stroke="#7a5a2a" stroke-width="3"/>
+  </svg>
+  <div class="hb"></div><div class="nm"></div><div class="wish"></div>
+</div></div><canvas id="cv" width="640" height="480" hidden></canvas>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
 <script>
 (function () {
   'use strict';
-  var APP_VER = '2026-10-23-1';
+  var APP_VER = '2026-10-24-1';
   var API = 'https://script.google.com/macros/s/AKfycbzqY-Si-Drz7B-MAsT0hWSx8NWF6hUU46ibuscemGgY6-Yzn2uvHhXAkkpHb3YpDYpr/exec';
   var MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/';
   var CARD_RE = /^PPA\d{6}-[A-Z2-9]{4}$/;
@@ -503,7 +550,95 @@ body.standby #sb{display:flex}
       badSound(); setTimeout(function () { say((type === 'IN' ? 'Welcome ' : 'Goodbye ') + firstName(who)); }, 400);
       show('warn', label, who, sub, FLAG_TEXT[flag], { label: 'I meant ' + (type === 'IN' ? 'CLOCK OUT' : 'CLOCK IN'), ms: SWITCH_MS, fn: function () { doSwitch(rid, fromServer); } });
     } else { okSound(); say((type === 'IN' ? 'Good ' + (new Date().getHours() < 12 ? 'morning ' : new Date().getHours() < 17 ? 'afternoon ' : 'evening ') : 'Thank you ') + firstName(who)); show(type === 'IN' ? 'in' : 'out', label, who, sub); }
+    luckyParty(who, time);
   }
+
+  // ---- hidden egg (2026-10-24, same as PTE clock): hh = mm = ss (00:00:00, 05:05:05, 11:11:11 ... 24 seconds a day) ----
+  // Slot machine spins and lands on the time, JACKPOT!, fireworks, voice. 9 s, never blocks taps; the next tap ends it. Test: ?lucky=1
+  var LUCKY_TEST = /[?&]lucky=1/.test(location.search), LK_MS = 9000;
+  var LK_COLS = ['#fff1a8', '#9ff0c4', '#ffffff', '#ffd27a', '#7fc8ff'];
+  var lk = { timers: [], end: 0, rockets: [], sparks: [], confetti: [] };
+  function luckyTime(time) {
+    var t = /^\d\d:\d\d:\d\d$/.test(String(time)) ? String(time) : hms(new Date());
+    if (LUCKY_TEST) return t.slice(0, 2) + ':' + t.slice(0, 2) + ':' + t.slice(0, 2);
+    return /^(\d\d):\1:\1$/.test(t) ? t : '';
+  }
+  function lkLater(fn, ms) { lk.timers.push(setTimeout(fn, ms)); }
+  function luckyStop() {
+    lk.timers.forEach(clearTimeout); lk.timers = []; lk.end = 0;
+    var el = $('lk'); if (!el) return;
+    el.className = ''; var cv = el.querySelector('canvas'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+  }
+  function luckyParty(who, time) {
+    var lucky = luckyTime(time); if (!lucky) return;
+    luckyStop();
+    var el = $('lk'), cv = el.querySelector('canvas'), hb = el.querySelector('.hb'), name = firstName(who), title = 'JACKPOT!';
+    hb.innerHTML = ''; hb.style.fontSize = Math.round(Math.min(92, innerWidth * .09, innerWidth * .9 / (title.length * .7))) + 'px';
+    title.split('').forEach(function (ch, i) { var s = document.createElement('span'); s.textContent = ch; s.style.animationDelay = (0.25 + i * 0.07) + 's,' + (1.4 + i * 0.09) + 's'; hb.appendChild(s); });
+    el.querySelector('.nm').textContent = name + '!';
+    el.querySelector('.wish').textContent = 'Lucky time ' + lucky + ' · make a wish!';
+    el.className = ''; void el.offsetWidth; el.className = 'on';
+    cv.width = innerWidth; cv.height = innerHeight;
+    lk.rockets = []; lk.sparks = []; lk.confetti = [];
+    for (var i = 0; i < 90; i++) lk.confetti.push({ x: Math.random() * cv.width, y: -30 - Math.random() * cv.height * .8, vx: (Math.random() - .5) * 1.8, vy: 2 + Math.random() * 3,
+      r: Math.random() * 6, vr: (Math.random() - .5) * .3, w: 7 + Math.random() * 7, h: 4 + Math.random() * 5, c: LK_COLS[i % LK_COLS.length] });
+    lk.end = Date.now() + LK_MS;
+    // reels spin, then stop left to right on hh / mm / ss
+    var reels = el.querySelectorAll('.rl'), fin = lucky.slice(0, 2), spins = 0;
+    (function roll() {
+      spins++;
+      for (var r = 0; r < reels.length; r++) reels[r].textContent = spins > 14 + r * 6 ? fin : pad(Math.floor(Math.random() * 60));
+      if (spins <= 14 + (reels.length - 1) * 6) lkLater(roll, 70); else beep(1568, 120);
+    })();
+    [0, 250, 500].forEach(function (t) { lkLater(lkLaunch, t); });
+    (function more() { if (Date.now() > lk.end - 2200) return; lkLaunch(); lkLater(more, 300 + Math.random() * 300); })();
+    lkLater(function () { for (var j = 0; j < 5; j++) lkLater(lkLaunch, j * 90); }, LK_MS - 4000);
+    lkLater(lkStep, 33);
+    lkLater(function () { el.className = 'on out'; }, LK_MS - 700);
+    lkLater(luckyStop, LK_MS);
+    // after the normal greeting: voice, then a little jingle
+    lkLater(function () {
+      var n = Number(fin) || 'zero';
+      try { var u = new SpeechSynthesisUtterance('Wow! ' + n + ', ' + n + ', ' + n + '! Lucky time, ' + name + '! Make a wish!'); u.lang = 'en-GB'; u.rate = 0.95; speechSynthesis.speak(u); } catch (e) { }
+    }, 2200);
+    var tt = 6500;
+    [[1319, 110], [1568, 110], [1760, 110], [2093, 110], [1760, 110], [2093, 160], [2637, 600]].forEach(function (n) { lkLater(function () { beep(n[0], n[1] - 30); }, tt); tt += n[1] + 25; });
+  }
+  function lkLaunch() {
+    var cv = document.querySelector('#lk canvas'); if (!cv || !lk.end) return;
+    lk.rockets.push({ x: cv.width * (.12 + Math.random() * .76), y: cv.height + 10, vx: (Math.random() - .5) * 2, vy: -(cv.height / 70) * (.75 + Math.random() * .35), c: LK_COLS[Math.floor(Math.random() * LK_COLS.length)] });
+  }
+  function lkStep() {
+    var cv = document.querySelector('#lk canvas'), x = cv.getContext('2d'), now = Date.now(), W = cv.width, H = cv.height;
+    x.globalCompositeOperation = 'destination-out'; x.fillStyle = 'rgba(0,0,0,.26)'; x.fillRect(0, 0, W, H);
+    x.globalCompositeOperation = 'lighter';
+    lk.rockets = lk.rockets.filter(function (r) {
+      r.x += r.vx; r.y += r.vy; r.vy += .12;
+      x.fillStyle = r.c; x.beginPath(); x.arc(r.x, r.y, 2.6, 0, 7); x.fill();
+      if (r.vy >= -1.2) {
+        var n = 90 + Math.floor(Math.random() * 60), ring = Math.random() < .35, c2 = LK_COLS[Math.floor(Math.random() * LK_COLS.length)];
+        for (var i = 0; i < n; i++) { var a = Math.PI * 2 * i / n + Math.random() * .1, sp = ring ? 5.2 : 1 + Math.random() * 5.5;
+          lk.sparks.push({ x: r.x, y: r.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 55 + Math.random() * 35, c: i % 3 ? r.c : c2, s: 1.6 + Math.random() * 1.6 }); }
+        return false;
+      }
+      return true;
+    });
+    lk.sparks = lk.sparks.filter(function (p) {
+      p.vx *= .975; p.vy = p.vy * .975 + .06; p.x += p.vx; p.y += p.vy; p.life--;
+      if (p.life <= 0) return false;
+      x.globalAlpha = Math.min(1, p.life / 40); x.fillStyle = p.c; x.beginPath(); x.arc(p.x, p.y, p.s, 0, 7); x.fill();
+      return true;
+    });
+    x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+    lk.confetti.forEach(function (p) {
+      p.x += p.vx + Math.sin((p.y + p.r * 40) / 40) * .7; p.y += p.vy; p.r += p.vr;
+      if (p.y > H + 20 && now < lk.end - 2500) { p.y = -20; p.x = Math.random() * W; }
+      x.save(); x.translate(p.x, p.y); x.rotate(p.r); x.fillStyle = p.c; x.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); x.restore();
+    });
+    if (now < lk.end) lkLater(lkStep, 33);
+  }
+  // the next person's tap ends it straight away
+  document.addEventListener('pointerdown', function () { if (lk.end && Date.now() < lk.end - LK_MS + 1500) return; if (lk.end) luckyStop(); }, true);
   var switched = {};
   function doSwitch(rid, fromServer) {
     if (switched[rid]) return; switched[rid] = true;
