@@ -87,10 +87,26 @@ footer .sig{font:italic 600 1.6rem "Segoe Script","Brush Script MT","Snell Round
 
 /* admin panel (?setup) */
 .admin #adm{display:block}
-#adm{display:none;position:absolute;right:.8rem;bottom:.6rem;width:min(30rem,94%);max-height:60%;overflow:auto;background:#050f1cf2;border:1px solid var(--line);border-radius:.9rem;padding:.8rem;font-size:.95rem;z-index:9}
+#adm{display:none;position:absolute;right:.8rem;bottom:.6rem;width:min(40rem,94%);max-height:82%;overflow:auto;background:#050f1cf2;border:1px solid var(--line);border-radius:.9rem;padding:.8rem;font-size:.95rem;z-index:9}
 #adm h3{margin:.4rem 0;font-size:1rem}
 #adm button,#adm select{background:#0e1d2d;color:#fff;border:1px solid var(--line);border-radius:.5rem;padding:.35rem .7rem;margin:2px;font-size:.9rem}
 #adm table{width:100%;border-collapse:collapse}#adm td{padding:3px 4px;border-bottom:1px solid rgba(214,165,70,.25)}
+/* 2026-10-25 setup panel brought level with the PTE clock: voice, face results, live test */
+#adm th{text-align:left;font-weight:600;font-size:.8rem;color:var(--goldtxt);padding:3px 4px}
+#adm .nt{font-size:.8rem;opacity:.75;margin:.25rem 0 .4rem;line-height:1.35}
+#adm .row{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .5rem;margin:.3rem 0}
+#adm input[type=range]{width:6.5rem;accent-color:var(--gold2)}
+#adm .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem;margin:.5rem 0}
+#adm .stat{background:#0e1d2d;border:1px solid var(--line);border-radius:.5rem;padding:.35rem .5rem}
+#adm .stat b{display:block;font-size:1.25rem}#adm .stat small{font-size:.72rem;opacity:.8;line-height:1.2;display:block}
+#adm .stat.warn b{color:#ffb74d}
+#adm td img{width:34px;height:34px;border-radius:.3rem;display:block;object-fit:cover}
+#adm .tag{display:inline-block;font-family:inherit;letter-spacing:0;white-space:nowrap;padding:1px 6px;border-radius:.4rem;font-size:.78rem;font-weight:600}
+#adm .tag.ok{background:#1f5f3a;color:#bff3d3}#adm .tag.bad{background:#6b1f24;color:#ffc9cc}#adm .tag.none{background:#3a4352;color:#d8dee8}
+#faceTestInfo{flex-basis:100%;font-size:.85rem;color:#bff3d3}
+#faceOv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:none;z-index:2}
+body.ftest #cam .guide,body.ftest #cam .note{display:none}
+body.ftest #adm>*:not(.ftrow):not(h3.fh){display:none}
 .dim #wrap{opacity:.12}
 /* standby: only the time on a black screen */
 #sb{display:none;position:fixed;inset:0;z-index:100;background:#000;flex-direction:column;align-items:center;justify-content:center;color:var(--gold);cursor:pointer}
@@ -211,13 +227,31 @@ body.standby #sb{display:flex}
     <svg viewBox="0 0 48 48" fill="none" stroke="#e6b956" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V6h8M36 6h8v8M44 34v8h-8M12 42H4v-8"/><rect x="11" y="15" width="26" height="19" rx="3.5"/><circle cx="24" cy="24.5" r="5.5"/><path d="M18 15l2-3h8l2 3"/></svg>
     <b>TAP CLOCK IN OR CLOCK OUT</b><small>THEN SHOW YOUR CARD TO THE CAMERA</small>
   </div>
-  <div id="cam"><div class="top" id="camTop">Show your card</div><div class="note">Face recognition is optional: your card always works.</div><video id="video" playsinline muted autoplay></video><div class="guide"><div class="oval" id="ovalFace"><span>Face in the oval</span></div><div class="sq" id="sqCard"><span>Card here</span></div></div><div class="bot"><span id="camMsg"></span><button id="bCancel">Cancel</button></div></div>
+  <div id="cam"><div class="top" id="camTop">Show your card</div><div class="note">Face recognition is optional: your card always works.</div><video id="video" playsinline muted autoplay></video><canvas id="faceOv"></canvas><div class="guide"><div class="oval" id="ovalFace"><span>Face in the oval</span></div><div class="sq" id="sqCard"><span>Card here</span></div></div><div class="bot"><span id="camMsg"></span><button id="bCancel">Cancel</button></div></div>
   <div id="res"></div>
   <div id="adm">
     <h3>Tablet settings <small id="ver"></small></h3>
-    <div>Camera <select id="camSel"></select> <button id="bSync">Sync now</button></div>
-    <h3>Faces <button id="bEnrol">Enrol a face</button></h3>
-    <div id="faces"></div>
+    <div class="row">Camera <select id="camSel"></select> <button id="bSync">Sync now</button></div>
+    <div class="row">Voice <select id="voiceSel"></select></div>
+    <div class="row">Pitch <input type="range" id="pitch" min="0.5" max="1.5" step="0.05"> <span id="pitchVal"></span>
+      Speed <input type="range" id="rate" min="0.6" max="1.3" step="0.05"> <span id="rateVal"></span>
+      <button id="voiceTest">▶ Test</button></div>
+    <div class="nt">Settings are saved on this tablet. Staff use the normal address (without ?setup).</div>
+    <h3 class="fh">Faces <button id="bEnrol">Enrol a face</button> <small id="faceModel"></small> <small id="faceCloud"></small></h3>
+    <div class="nt" id="faceCfgTxt"></div>
+    <div class="row ftrow">Face distance <select id="faceDistSel"></select> <button id="faceTest">▶ Live test</button><span id="faceTestInfo"></span></div>
+    <div class="stats">
+      <div class="stat"><b id="fN">0</b><small>Checks</small></div>
+      <div class="stat"><b id="fOk">0</b><small>Match</small></div>
+      <div class="stat warn"><b id="fBad">0</b><small>Not match</small></div>
+      <div class="stat"><b id="fNone">0</b><small>Unclear / no face</small></div>
+      <div class="stat"><b id="fSelf">-</b><small>Self-check: closest face is the card holder</small></div>
+      <div class="stat"><b id="fMs">-</b><small>Avg time (s)</small></div>
+    </div>
+    <table><thead><tr><th>Enrolled</th><th>ID</th><th>Photos</th><th>Checks</th><th>Not match</th><th></th></tr></thead><tbody id="faceList"></tbody></table>
+    <h3>Face results <button id="faceCsv">Download CSV</button> <button id="faceClear">Clear results</button></h3>
+    <table><thead><tr><th></th><th>Time</th><th>Name</th><th>Result</th><th>Dist.</th><th>Closest other</th><th>s</th></tr></thead><tbody id="faceLog"></tbody></table>
+    <div class="nt">Staff never see these results and the card always works. Distance: smaller = more alike. "Closest other" is the most similar other enrolled person. Each result is also written to the Face check column of Clock Log (filter "Not match" and check the photo). Self-check: when a card is scanned we know who it is, so we test whether the face alone would have found the same person ("wrong" must stay 0). Face distance: only the biggest face is checked and smaller faces are ignored, so people queuing behind are not checked. Live test: green box = the face that would be checked, grey = ignored.</div>
     <h3>Recent on this tablet</h3>
     <table id="recent"></table>
   </div>
@@ -273,7 +307,7 @@ body.standby #sb{display:flex}
 <script>
 (function () {
   'use strict';
-  var APP_VER = '2026-10-24-4';
+  var APP_VER = '2026-10-25-1';
   var API = 'https://script.google.com/macros/s/AKfycbzqY-Si-Drz7B-MAsT0hWSx8NWF6hUU46ibuscemGgY6-Yzn2uvHhXAkkpHb3YpDYpr/exec';
   var MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/';
   var CARD_RE = /^PPA\d{6}-[A-Z2-9]{4}$/;
@@ -281,6 +315,12 @@ body.standby #sb{display:flex}
   var DUP_MS = 60000, STALE_MS = 16 * 3600 * 1000, SYNC_MAX = 12 * 3600 * 1000;
   var MODE_MS = 8000, FACE_MODE_MS = 12000, CAM_KEEP_MS = 15000, SWITCH_MS = 5000, SLEEP_MS = 120000, NET_MS = 25000;
   var FACE_THR = 0.4, FACE_GAP = 0.12;
+  // face tuning, same rules as the PTE clock (2026-10-25). Script property FACE_CFG can change these through sync; every number is clamped
+  // to a safe range, so a typo can never make the tablet pick the wrong person (match line at most 0.42, gap at least 0.10).
+  var FACE_LEARN_MIN = 0.2, FACE_LEARN_MAX = 0.42, FACE_LEARN_GAP = 0.15, FACE_CARD_LEARN_MAX = 0.55, FACE_LEARN_COOLDOWN_H = 12;
+  var FACE_KEEP = 5, FACE_MAX_SAMPLES = 10, FACE_AVG_N = 3, FACE_SIZE = 0, FACE_AUDIT_THR = 0.5;
+  var FACE_CFG_RANGE = { thr: [0.36, 0.42, 0.4], gap: [0.10, 0.16, 0.12], learnMax: [0.38, 0.45, 0.42], cardLearnMax: [0.45, 0.58, 0.55],
+    learnCooldownH: [2, 24, 12], avgN: [1, 4, 3], modeMs: [8000, 20000, 12000] };
 
   function $(id) { return document.getElementById(id); }
   function lsGet(k, d) { try { var v = localStorage.getItem(P + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
@@ -322,11 +362,43 @@ body.standby #sb{display:flex}
       if (!r.ok) { if (r.code === 'KEY') { $('nokey').style.display = 'block'; } return; }
       net(true);
       lsSet('sync', { cards: r.cards, last: r.last || {}, pepper: r.pepper, at: Date.now(), hols: r.hols || null });
+      if (r.faceCfg) faceCfgApply(r.faceCfg);
+      // local face changes still waiting to upload win: send them first, the cloud copy is downloaded on a later sync
+      if (lsGet('faceops', []).length) return faceOpsFlush();
       if (String(r.faceVer) !== String(faceDb().ver)) return loadFaces(r.faceVer);
     }).then(flush).catch(function () { net(false); });
   }
   function loadFaces() {
-    return post({ action: 'faces' }).then(function (r) { if (r.ok) { lsSet('faces', { ver: r.ver, faces: r.faces || {} }); renderAdmin(); } });
+    return post({ action: 'faces' }).then(function (r) {
+      if (!r.ok) return;
+      // keep what this tablet learned (lt = last learned time) when the cloud copy has the same samples
+      var old = faceDb().faces, nf = r.faces || {};
+      Object.keys(nf).forEach(function (k) { if (old[k] && old[k].lt && old[k].d.length === nf[k].d.length) nf[k].lt = old[k].lt; });
+      lsSet('faces', { ver: r.ver, faces: nf }); renderAdmin();
+    });
+  }
+  // enrol / learn / delete go into a small queue, so a face saved with no internet still reaches the cloud later
+  var faceOpsBusy = false;
+  function faceOp(op, id) {
+    var q = lsGet('faceops', []).filter(function (x) { return x.id !== id; });
+    q.push({ op: op, id: id }); lsSet('faceops', q); faceCloudText(); faceOpsFlush();
+  }
+  function faceOpsFlush() {
+    var q = lsGet('faceops', []);
+    if (faceOpsBusy || !q.length || !KEY) { faceCloudText(); return Promise.resolve(); }
+    var it = q[0], f = faceDb().faces[it.id];
+    faceOpsBusy = true;
+    var p = it.op === 'del' || !f ? post({ action: 'faceDel', id: it.id }) : post({ action: 'faceSave', id: it.id, n: f.n, d: f.d, at: f.at });
+    return p.then(function (r) {
+      faceOpsBusy = false;
+      var q2 = lsGet('faceops', []); if (q2.length && q2[0].id === it.id && q2[0].op === it.op) { q2.shift(); lsSet('faceops', q2); }
+      if (!r.ok && r.code === 'BAD') { faceCloudText(); return; }   // e.g. card no longer on the list: dropped, nothing to retry
+      return faceOpsFlush();
+    }).catch(function () { faceOpsBusy = false; faceCloudText(); });
+  }
+  function faceCloudText() {
+    var n = lsGet('faceops', []).length, el = $('faceCloud');
+    if (el) el.textContent = n ? '· ' + n + ' face change(s) waiting to upload' : '· cloud backup ✔';
   }
   function faceDb() { var d = lsGet('faces', null); if (!d || typeof d !== 'object') d = {}; if (!d.faces || typeof d.faces !== 'object') d.faces = {}; if (d.ver === undefined) d.ver = ''; return d; }
 
@@ -366,7 +438,7 @@ body.standby #sb{display:flex}
     $('clock').textContent = hms(d);
     $('date').textContent = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][d.getDay()] + ', ' + dayKey(d);
     $('inSub').textContent = pad(h) + ':' + pad(d.getMinutes()) + ' · ' + (h >= 5 && h < 12 ? 'Good morning' : h >= 12 && h < 17 ? 'Good afternoon' : 'Good evening');
-    var sb = !mode && !busy && !enrolling && $('res').style.display !== 'flex' && $('consent').style.display !== 'flex' && Date.now() - lastTouch > SLEEP_MS;
+    var sb = !mode && !busy && !enrolling && !faceTestOn && !document.body.classList.contains('admin') && $('res').style.display !== 'flex' && $('consent').style.display !== 'flex' && Date.now() - lastTouch > SLEEP_MS;
     document.body.classList.toggle('standby', sb);
     if (sb) {
       $('sbTime').textContent = hms(d);
@@ -395,7 +467,45 @@ body.standby #sb{display:flex}
   }
   function okSound() { beep(880, 120); setTimeout(function () { beep(1175, 160); }, 140); }
   function badSound() { beep(220, 400, 'square'); }
-  function say(t) { try { var u = new SpeechSynthesisUtterance(t); u.lang = 'en-GB'; u.rate = 0.95; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) { } }
+  // voice for the greetings: pick a voice, pitch and speed in ?setup (saved on this tablet, same as the PTE clock)
+  var vset = lsGet('voice', { uri: '', pitch: 1, rate: 0.95 });
+  function chosenVoice() {
+    if (!window.speechSynthesis) return null;
+    var vs = speechSynthesis.getVoices(), i;
+    for (i = 0; i < vs.length; i++) if (vset.uri && vs[i].voiceURI === vset.uri) return vs[i];
+    for (i = 0; i < vs.length; i++) if (/^en-GB/i.test(vs[i].lang)) return vs[i];
+    for (i = 0; i < vs.length; i++) if (/^en/i.test(vs[i].lang)) return vs[i];
+    return null;
+  }
+  window.__ppaVoice = chosenVoice;   // holiday module greetings use the same voice
+  function utter(t) {
+    var u = new SpeechSynthesisUtterance(t), v = chosenVoice();
+    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-GB';
+    u.rate = vset.rate || 0.95; u.pitch = vset.pitch || 1;
+    return u;
+  }
+  function say(t) { try { speechSynthesis.cancel(); speechSynthesis.speak(utter(t)); } catch (e) { } }
+  var voiceSel = $('voiceSel');
+  function fillVoices() {
+    if (!window.speechSynthesis) return;
+    var vs = speechSynthesis.getVoices().filter(function (v) { return /^(en|pt)/i.test(v.lang); });
+    voiceSel.innerHTML = '';
+    vs.forEach(function (v) { var o = document.createElement('option'); o.value = v.voiceURI; o.textContent = v.name + ' (' + v.lang + ')'; voiceSel.appendChild(o); });
+    if (!vs.length) voiceSel.innerHTML = '<option value="">Tablet default</option>';
+    var cur = chosenVoice(); if (cur) voiceSel.value = cur.voiceURI;
+  }
+  function showVset() {
+    $('pitch').value = vset.pitch; $('rate').value = vset.rate;
+    $('pitchVal').textContent = Number(vset.pitch).toFixed(2); $('rateVal').textContent = Number(vset.rate).toFixed(2);
+  }
+  function saveVset() { vset = { uri: voiceSel.value || '', pitch: Number($('pitch').value), rate: Number($('rate').value) }; lsSet('voice', vset); showVset(); }
+  if (window.speechSynthesis) { fillVoices(); speechSynthesis.onvoiceschanged = fillVoices; }
+  voiceSel.onchange = saveVset; $('pitch').oninput = saveVset; $('rate').oninput = saveVset; showVset();
+  var voiceTestN = 0;
+  $('voiceTest').onclick = function () {
+    var h = new Date().getHours();
+    say(voiceTestN++ % 2 ? 'Thank you Amilcar' : 'Good ' + (h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening') + ' Amilcar');
+  };
   function firstName(n) { return String(n || '').split(' ')[0]; }
 
   // ---- result screen ----
@@ -435,6 +545,7 @@ body.standby #sb{display:flex}
   }
   function keepCam() { clearTimeout(camOff); camOff = setTimeout(stopCam, CAM_KEEP_MS); }
   function setMode(t, ot) {
+    if (t) { faceTestStop(); faceSessReset(); }
     mode = t; modeOT = !!ot; faceSeen = false;
     $('cam').style.display = t ? 'block' : 'none'; $('btns').style.display = t || !KEY ? 'none' : ''; $('hint').style.display = t ? 'none' : (KEY ? '' : 'none');
     if (t) { modeAt = Date.now(); hideResult(); $('camTop').textContent = (ot ? 'OT ' : '') + (t === 'IN' ? 'Clock in' : 'Clock out') + ' — show your card'; }
@@ -542,7 +653,7 @@ body.standby #sb{display:flex}
     if (last && ts - last.ts < DUP_MS) { busy = false; beep(440, 150); show('warn', 'Already clocked', name, 'Your ' + (last.type === 'IN' ? 'Clock In' : 'Clock Out') + ' at ' + last.time + ' is recorded. Scans within 60 seconds are ignored.'); return; }
     var flag = flagFor(type, last, ts), t = new Date(ts);
     var item = { rid: rid, card: card, type: type, ts: ts, photo: photo, live: true, ot: ot, notBefore: flag ? ts + SWITCH_MS + 500 : 0 };
-    if (face) { item.faceId = id; item.faceD = face.d; item.faceText = 'FACEID d=' + face.d; }
+    if (face) { item.faceId = id; item.faceD = face.d; item.faceText = face.text || 'FACEID d=' + face.d; }
     var q = queue(); q.push(item);
     if (!setQueue(q)) { item.photo = ''; if (!setQueue(q)) { busy = false; fail('Not clocked: tablet storage full', 'Please tell HR.'); return; } }
     addRecent({ rid: rid, day: dayKey(t), time: hms(t), ts: ts, id: id, name: name, type: type, flag: flag, wait: true, ot: ot });
@@ -650,7 +761,7 @@ body.standby #sb{display:flex}
     lkLater(luckyStop, o.ms);
     // after the normal greeting: voice, then a little jingle
     lkLater(function () {
-      try { var u = new SpeechSynthesisUtterance(o.say); u.lang = 'en-GB'; u.rate = 0.95; speechSynthesis.speak(u); } catch (e) { }
+      try { speechSynthesis.speak(utter(o.say)); } catch (e) { }
     }, 2200);
     var tt = o.ms - 2500;
     o.tune.forEach(function (n) { lkLater(function () { if (n[0]) beep(n[0], n[1] - 30); }, tt); tt += n[1] + 25; });
@@ -703,53 +814,182 @@ body.standby #sb{display:flex}
   }
 
   // ---- face recognition (optional; the card always works) ----
-  var modelsState = 0;
-  function loadModels() {
-    if (modelsState || !window.faceapi || !Object.keys(faceDb().faces).length && !enrolling) return Promise.resolve();
-    modelsState = 1;
-    return Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL), faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL), faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)])
-      .then(function () { modelsState = 2; }).catch(function () { modelsState = 0; });
+  // 2026-10-25: brought level with the PTE clock: only the biggest (nearest) face is checked, face distance per tablet,
+  // averaging of 2-3 frames, self-learning, results log with self-check, live test. Thresholds unchanged (0.40 / gap 0.12).
+  var modelsState = 0, modelsP = null;
+  function faceModelText(t) { var el = $('faceModel'); if (el) el.textContent = t ? '· ' + t : ''; }
+  function loadModels(force) {
+    if (modelsState === 2) return Promise.resolve();
+    if (modelsP) return modelsP;
+    if (!window.faceapi) { faceModelText('face library not loaded, check the internet'); return Promise.resolve(); }
+    if (!force && !Object.keys(faceDb().faces).length && !enrolling) return Promise.resolve();
+    modelsState = 1; faceModelText('loading model…');
+    var t0 = Date.now();
+    modelsP = Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL), faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL), faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)])
+      .then(function () {   // one empty run first, so the first real check is not extra slow
+        var c = document.createElement('canvas'); c.width = c.height = 160;
+        return Promise.resolve(faceapi.computeFaceDescriptor(c)).catch(function () { });
+      })
+      .then(function () { modelsState = 2; faceModelText('model ready (' + ((Date.now() - t0) / 1000).toFixed(1) + ' s)'); })
+      .catch(function () { modelsState = 0; faceModelText('model failed to load'); })
+      .then(function () { modelsP = null; });
+    return modelsP;
   }
-  function detect(input) {
-    var run = function (src, t) { return Promise.resolve(faceapi.detectSingleFace(src, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: t })).withFaceLandmarks(true).withFaceDescriptor()); };
-    return run(input, 0.4).then(function (r) {
-      if (r) return r;       // dark skin or low light: try again on a brightened copy
-      var e = document.createElement('canvas'); e.width = input.width; e.height = input.height;
-      var g = e.getContext('2d'); g.filter = 'brightness(1.6) contrast(1.2)'; g.drawImage(input, 0, 0);
-      return run(e, 0.35);
+  // face distance (chosen in ?setup to match where the tablet hangs): faces smaller than min (share of picture height) are ignored
+  var FACE_DIST = {
+    N: { min: 0.18, size: 224, t: 'Near (about 1 m) · fastest' },
+    M: { min: 0.11, size: 320, t: 'Normal (about 1.5 m)' },
+    F: { min: 0.06, size: 416, t: 'Far (2 m or more) · slower' }
+  };
+  function faceDist0() { var D = FACE_DIST[lsGet('facedist', 'M')] || FACE_DIST.M; return FACE_SIZE ? { min: D.min, size: FACE_SIZE, t: D.t } : D; }
+  function facePick(a, src, noMin) {
+    var D = faceDist0(), best = null;
+    (a || []).forEach(function (d) { if (!noMin && d.box.height < src.height * D.min) return; if (!best || d.box.area > best.box.area) best = d; });
+    return best;
+  }
+  // find faces first, keep the biggest one that is near enough, and only compute that face (same alignment as the face-api chain,
+  // so the numbers are identical to the old way). Nothing found: try again on a brightened copy (dark skin or low light).
+  function detect(src, noMin, loose) {
+    var o = loose ? { inputSize: 416, scoreThreshold: 0.3 } : { inputSize: faceDist0().size, scoreThreshold: 0.4 };
+    var det = null, srcD = src;
+    return Promise.resolve(faceapi.detectAllFaces(src, new faceapi.TinyFaceDetectorOptions(o))).then(function (a) {
+      det = facePick(a, src, noMin);
+      if (det || loose) return;
+      var e = document.createElement('canvas'); e.width = src.width; e.height = src.height;
+      var g = e.getContext('2d'); g.filter = 'brightness(1.6) contrast(1.2)'; g.drawImage(src, 0, 0);
+      return Promise.resolve(faceapi.detectAllFaces(e, new faceapi.TinyFaceDetectorOptions({ inputSize: o.inputSize, scoreThreshold: 0.35 })))
+        .then(function (b) { det = facePick(b, src, noMin); if (det) srcD = e; });
+    }).then(function () {
+      if (!det) return null;
+      return Promise.resolve(faceapi.extractFaces(srcD, [det])).then(function (f) { return faceapi.detectFaceLandmarksTiny(f[0]); })
+        .then(function (lm) { return faceapi.extractFaces(srcD, [lm.shiftBy(det.box.x, det.box.y).align(null, { useDlibAlignment: true })]); })
+        .then(function (f) { return faceapi.computeFaceDescriptor(f[0]); })
+        .then(function (desc) { return { detection: det, descriptor: desc }; });
     });
   }
   function dist(a, b) { var s = 0; for (var i = 0; i < a.length; i++) { var d = a[i] - b[i]; s += d * d; } return Math.sqrt(s); }
   function minDist(q, list) { var m = 9; list.forEach(function (d) { var x = dist(q, d); if (x < m) m = x; }); return m; }
+  function faceRank(F, desc) {
+    var best = null, second = null;
+    Object.keys(F).forEach(function (k) { var d = minDist(desc, F[k].d), o = { id: k, n: F[k].n, d: d }; if (!best || d < best.d) { second = best; best = o; } else if (!second || d < second.d) second = o; });
+    return { best: best, second: second };
+  }
+  function facePass(b, s) { return b && b.d <= FACE_THR && (!s || s.d - b.d >= FACE_GAP); }
+  function faceQual(r, c) { return r ? r.detection.score * r.detection.box.height / c.height : 0; }
+  function faceThumb(src, box) {
+    var t = document.createElement('canvas'); t.width = t.height = 64;
+    var g = t.getContext('2d'), w = src.width, h = src.height;
+    if (box) { var s = Math.max(box.width, box.height) * 1.4, cx0 = box.x + box.width / 2, cy0 = box.y + box.height / 2; g.drawImage(src, cx0 - s / 2, cy0 - s / 2, s, s, 0, 0, 64, 64); }
+    else { var mm = Math.min(w, h); g.drawImage(src, (w - mm) / 2, (h - mm) / 2, mm, mm, 0, 0, 64, 64); }
+    return t.toDataURL('image/jpeg', 0.6);
+  }
+  function faceLog() { return lsGet('facelog', []); }
+  function faceLogAdd(o) {
+    var L = faceLog(); L.push(o); if (L.length > 200) L = L.slice(-200);
+    if (!lsSet('facelog', L)) lsSet('facelog', L.slice(-50));
+    renderAdmin();
+  }
+  function faceCfgApply(c) {
+    c = c || {}; var v = {};
+    Object.keys(FACE_CFG_RANGE).forEach(function (k) { var R = FACE_CFG_RANGE[k], x = Number(c[k]); v[k] = isFinite(x) && c[k] !== '' && c[k] != null ? Math.min(R[1], Math.max(R[0], x)) : R[2]; });
+    FACE_THR = v.thr; FACE_GAP = v.gap; FACE_LEARN_MAX = v.learnMax; FACE_CARD_LEARN_MAX = v.cardLearnMax;
+    FACE_LEARN_COOLDOWN_H = v.learnCooldownH; FACE_AVG_N = Math.round(v.avgN); FACE_MODE_MS = Math.round(v.modeMs);
+    FACE_SIZE = [224, 320, 416].indexOf(Number(c.size)) >= 0 ? Number(c.size) : 0;   // 0 = use this tablet's face distance
+    lsSet('facecfg', c);
+    $('faceCfgTxt').textContent = 'Tuning: match ≤ ' + v.thr + ', gap ≥ ' + v.gap + ', learn ≤ ' + v.learnMax + ' / with card ' + v.cardLearnMax +
+      ', every ' + v.learnCooldownH + ' h, average ' + FACE_AVG_N + ' frames, wait ' + FACE_MODE_MS / 1000 + ' s' + (FACE_SIZE ? ', size ' + FACE_SIZE : '');
+  }
+  // self-learning: a face we are sure about (or proven by the card) that looks a bit different from the saved ones (light, angle, hair)
+  // is added. The 5 enrolment samples always stay, up to 5 learned ones on top (newest replaces oldest), once per person every 12 h.
+  function faceLearn(id, desc, d, max) {
+    if (d < FACE_LEARN_MIN || d > (max || FACE_LEARN_MAX)) return;   // too alike = already known; too different = not sure
+    var F = faceDb(), f = F.faces[id];
+    if (!f || (f.lt && Date.now() - f.lt < FACE_LEARN_COOLDOWN_H * 3600e3)) return;
+    if (f.d.length >= FACE_MAX_SAMPLES) f.d.splice(FACE_KEEP, 1);
+    f.d.push(Array.prototype.map.call(desc, function (x) { return +x.toFixed(4); })); f.lt = Date.now();
+    if (lsSet('faces', F)) faceOp('save', id);
+  }
+  // one session = one press of a clock button: how many tries, frames with no face, weak (too far from anyone), look-alike (too close to a 2nd person)
+  var fsess = null;
+  function faceSessReset() { fsess = { t0: Date.now(), n: 0, nf: 0, w: 0, l: 0, recent: [], best: null }; }
   var faceBusy = false;
   function faceFrame() {
-    if (!mode || busy || enrolling || faceBusy || modelsState !== 2 || !stream) return;
+    if (!mode || busy || enrolling || faceBusy || modelsState !== 2 || !stream || !fsess) return;
     var F = faceDb().faces; if (!Object.keys(F).length) return;
     var c = faceGrab(); if (!c) return;      // own copy: the QR scan reuses the shared canvas while this runs
-    faceBusy = true;
+    faceBusy = true; var S = fsess;
     detect(c).then(function (r) {
-      faceBusy = false; if (!mode || busy) return;
-      if (!r) { faceSeen = false; $('ovalFace').classList.remove('ok'); return; }
+      faceBusy = false; if (!mode || busy || S !== fsess) return;
+      S.n++;
+      if (!r) { S.nf++; faceSeen = false; $('ovalFace').classList.remove('ok'); return; }
       faceSeen = true; $('ovalFace').classList.add('ok');
-      var best = null, second = null;
-      Object.keys(F).forEach(function (k) { var d = minDist(r.descriptor, F[k].d), o = { id: k, n: F[k].n, d: d }; if (!best || d < best.d) { second = best; best = o; } else if (!second || d < second.d) second = o; });
-      if (best && best.d <= FACE_THR && (!second || second.d - best.d >= FACE_GAP)) clock('', mode, modeOT, { id: best.id, d: +best.d.toFixed(3) });
+      var q = faceQual(r, c); if (!S.best || q > S.best.q) S.best = { r: r, c: c, q: q, at: Date.now() };
+      var desc = r.descriptor, k = faceRank(F, desc), best = k.best, second = k.second, avg = false;
+      // not sure on one frame: average the last 2-3 frames of the same face (less camera noise, same thresholds); a new face restarts it
+      S.recent = S.recent.filter(function (x) { return dist(x, desc) < 0.3; }).slice(-(FACE_AVG_N - 1)); S.recent.push(desc);
+      if (!facePass(best, second) && FACE_AVG_N >= 2 && S.recent.length >= 2) {
+        var mv = new Float32Array(desc.length);
+        S.recent.forEach(function (x) { for (var i = 0; i < mv.length; i++) mv[i] += x[i] / S.recent.length; });
+        var k2 = faceRank(F, mv);
+        if (facePass(k2.best, k2.second)) { desc = mv; best = k2.best; second = k2.second; avg = true; }
+      }
+      if (!facePass(best, second)) { if (best && best.d > FACE_THR) S.w++; else S.l++; return; }
+      if (!second || second.d - best.d >= FACE_LEARN_GAP) faceLearn(best.id, desc, best.d);
+      var ms = Date.now() - S.t0;
+      faceLogAdd({ ts: Date.now(), id: best.id, n: best.n, ms: ms, thr: FACE_THR, res: 'FACEID', d: +best.d.toFixed(3), od: second ? +second.d.toFixed(3) : null, on: second ? second.n : '', img: faceThumb(c, r.detection.box), avg: avg });
+      var text = 'FACEID d=' + best.d.toFixed(3) + (second ? ', 2nd ' + second.d.toFixed(2) + ' ' + second.n : '') + ', ' + (ms / 1000).toFixed(1) + ' s, tries ' + S.n +
+        ', no face ' + S.nf + ', weak ' + S.w + ', look-alike ' + S.l + (avg ? ', averaged' : '');
+      clock('', mode, modeOT, { id: best.id, d: +best.d.toFixed(3), text: text });
     }).catch(function () { faceBusy = false; });
   }
   function faceGrab() { var c = frame(480); if (!c) return null; var o = document.createElement('canvas'); o.width = c.width; o.height = c.height; o.getContext('2d').drawImage(c, 0, 0); return o; }
-  function faceBackground(canvas, id, rid) {   // audit only: does the face in front of the camera match the card owner?
-    var F = faceDb().faces[id]; if (!F || !window.faceapi) return;
-    loadModels().then(function () { if (modelsState !== 2) return; return detect(canvas); }).then(function (r) {
-      var text = !r ? 'NOFACE' : (function () { var d = minDist(r.descriptor, F.d); return (d <= 0.5 ? 'MATCH' : 'NOMATCH') + ' d=' + d.toFixed(3); })();
-      var q = queue(), hit = false; q.forEach(function (x) { if (x.rid === rid) { x.faceText = text; hit = true; } });
-      if (hit) setQueue(q); else post({ action: 'face', rid: rid, face: text }).catch(function () { });
+  // card scans of enrolled people: audit only, does the face match the card owner? Uses the clearest face seen during this clock-in
+  // (at the moment of the scan the card or a hand often covers the face). "Not match" only when the face is clear and the evidence strong.
+  function faceText(o) {
+    var d = function (v) { return ' (' + Number(v).toFixed(2) + ')'; };
+    var t = o.res === 'MATCH' ? 'Match' + d(o.d) : o.res === 'NOMATCH' ? 'Not match' + d(o.d) : o.res === 'OTHER' ? 'Not match, looks like ' + o.on + d(o.od) : o.res === 'UNCLEAR' ? 'Unclear' + d(o.d) : 'Face not readable';
+    return t + (o.sid ? ', face-only ' + o.sid.toLowerCase() : '');
+  }
+  function faceBackground(canvas, id, rid) {
+    var me = faceDb().faces[id]; if (!me || !window.faceapi) return;
+    var sb = fsess && fsess.best && Date.now() - fsess.best.at < 10000 ? fsess.best : null, t1 = 0;
+    loadModels().then(function () {
+      if (modelsState !== 2) throw new Error('no model');
+      t1 = performance.now();
+      return detect(canvas).then(function (r) { return r || detect(canvas, false, true); });
+    }).then(function (r) {
+      var c = canvas, F = faceDb().faces;
+      if (sb && (!r || faceQual(sb.r, sb.c) > faceQual(r, c))) { r = sb.r; c = sb.c; }
+      var o = { ts: Date.now(), id: id, n: me.n, ms: Math.round(performance.now() - t1), thr: FACE_AUDIT_THR, card: 1 };
+      if (!r) { o.res = 'NOFACE'; o.img = faceThumb(c); }
+      else {
+        var q = r.descriptor, best = null;
+        o.d = +minDist(q, me.d).toFixed(3);
+        Object.keys(F).forEach(function (k) { if (k === id) return; var d = minDist(q, F[k].d); if (!best || d < best.d) best = { n: F[k].n, d: d }; });
+        if (best) { o.od = +best.d.toFixed(3); o.on = best.n; }
+        var clear = r.detection.score >= 0.7 && r.detection.box.height >= c.height * 0.15;
+        if (o.d <= FACE_AUDIT_THR && (!best || best.d >= o.d)) o.res = 'MATCH';
+        else if (clear && best && best.d <= FACE_THR && o.d - best.d >= FACE_GAP) o.res = 'OTHER';
+        else if (clear && o.d > 0.6 && (!best || best.d > 0.5)) o.res = 'NOMATCH';
+        else if (!clear && o.d > 0.6) o.res = 'NOFACE';   // face covered or blurred, only part of it seen
+        else o.res = 'UNCLEAR';
+        // self-check: the card tells us who it is; would the face alone have found the same person? wrong must stay 0
+        var top1 = !best || o.d < best.d;
+        o.sid = top1 && o.d <= FACE_AUDIT_THR ? 'RIGHT' : (!top1 && best.d <= FACE_THR && o.d - best.d >= FACE_GAP) ? 'WRONG' : 'UNSURE';
+        o.img = faceThumb(c, r.detection.box);
+        if (clear) faceLearn(id, q, o.d, FACE_CARD_LEARN_MAX);   // the card proves who it is, so a less alike face can be learned
+      }
+      faceLogAdd(o);
+      var text = faceText(o), qq = queue(), hit = false;
+      qq.forEach(function (x) { if (x.rid === rid) { x.faceText = text; hit = true; } });
+      if (hit) setQueue(qq); else post({ action: 'face', rid: rid, face: text }).catch(function () { });
     }).catch(function () { });
   }
 
   // ---- admin: enrol faces ----
   var enrolId = '';
   $('bEnrol').onclick = function () {
-    if (enrolling) return;
+    if (enrolling || faceTestOn) return;
     var cm = $('consent'), ck = $('consentChk'), yes = $('consentYes');
     ck.checked = false; yes.disabled = true; yes.style.opacity = '.5'; cm.style.display = 'flex';
     ck.onchange = function () { yes.disabled = !ck.checked; yes.style.opacity = ck.checked ? '1' : '.5'; };
@@ -767,32 +1007,130 @@ body.standby #sb{display:flex}
     if (busy) return; busy = true; clearInterval(scanTimer);
     $('camTop').textContent = 'Enrolling ' + name + ' — look straight at the camera and keep still';
     var got = [], tries = 0;
-    (function one() {
-      if (!stream || tries >= 14 || got.length >= 5) return done();
-      tries++;
-      var c = frame(480);
-      detect(c).then(function (r) { if (r && r.detection.score > 0.6) got.push(Array.prototype.map.call(r.descriptor, function (v) { return +v.toFixed(4); })); $('camMsg').textContent = got.length + ' / 5'; setTimeout(one, 450); }).catch(function () { setTimeout(one, 450); });
-    })();
+    loadModels().then(function () {
+      (function one() {
+        if (!stream || modelsState !== 2 || tries >= 14 || got.length >= 5) return done();
+        tries++;
+        var c = frame(480);
+        detect(c, true).then(function (r) { if (r && r.detection.score > 0.6) got.push(Array.prototype.map.call(r.descriptor, function (v) { return +v.toFixed(4); })); $('camMsg').textContent = got.length + ' / 5'; setTimeout(one, 450); }).catch(function () { setTimeout(one, 450); });
+      })();
+    });
     function done() {
       busy = false; enrolling = false; setMode(null);
-      if (got.length < 3) { show('bad', 'Face not enrolled', name, 'Could not see the face clearly. Try again with better light.'); return; }
-      var F = faceDb(); F.faces[id] = { n: name, d: got, at: new Date().toISOString().slice(0, 16).replace('T', ' ') }; lsSet('faces', F);
-      post({ action: 'faceSave', id: id, n: name, d: got, at: F.faces[id].at }).then(function (r) { if (r.ok) sync(); }).catch(function () { });
-      okSound(); show('in', 'Face enrolled ✔', name, got.length + ' samples saved. The card still works.'); renderAdmin();
+      if (got.length < 3) { show('bad', 'Face not enrolled', name, modelsState !== 2 ? 'The face model did not load. Check the internet and try again.' : 'Could not see the face clearly. Come closer, face the light, take off cap or glasses, then try again.'); return; }
+      var F = faceDb(); F.faces[id] = { n: name, d: got, at: new Date().toISOString().slice(0, 16).replace('T', ' ') };
+      if (!lsSet('faces', F)) { show('bad', 'Tablet storage full', name, 'Clear face results and try again.'); return; }
+      faceOp('save', id);
+      okSound(); show('in', 'Face enrolled ✔', name, got.length + ' samples saved, backing up to the cloud. The card still works.'); renderAdmin();
     }
   }
+  var faceDelArm = '';
   function renderAdmin() {
-    var F = faceDb().faces, ids = Object.keys(F);
-    $('faces').innerHTML = ids.length ? ids.map(function (k) { return '<div>' + esc(F[k].n) + ' <small>(' + esc(k) + ')</small> <button data-del="' + esc(k) + '">Remove</button></div>'; }).join('') : '<small>No faces enrolled yet.</small>';
+    if (!document.body.classList.contains('admin')) return;
+    var F = faceDb().faces, L = faceLog(), per = {}, n = L.length, ok = 0, bad = 0, none = 0, ms = 0, sc = { n: 0, r: 0, w: 0 };
+    L.forEach(function (o) {
+      per[o.id] = per[o.id] || { n: 0, bad: 0 }; per[o.id].n++;
+      if (o.res === 'MATCH' || o.res === 'FACEID') ok++; else if (o.res === 'NOFACE' || o.res === 'UNCLEAR') none++; else { bad++; per[o.id].bad++; }
+      if (o.sid) { sc.n++; if (o.sid === 'RIGHT') sc.r++; else if (o.sid === 'WRONG') sc.w++; }
+      ms += o.ms || 0;
+    });
+    $('fN').textContent = n; $('fOk').textContent = ok; $('fBad').textContent = bad; $('fNone').textContent = none;
+    $('fSelf').textContent = sc.n ? Math.round(sc.r / sc.n * 100) + '% (' + sc.w + ' wrong)' : '-';
+    $('fMs').textContent = n ? (ms / n / 1000).toFixed(1) : '-';
+    var ids = Object.keys(F).sort(function (a, b) { return F[a].n < F[b].n ? -1 : 1; });
+    $('faceList').innerHTML = ids.length ? ids.map(function (k) {
+      var p = per[k] || { n: 0, bad: 0 };
+      return '<tr><td>' + esc(F[k].n) + '</td><td>' + esc(k) + '</td><td>' + F[k].d.length + '</td><td>' + p.n + '</td><td>' + p.bad + '</td><td><button data-del="' + esc(k) + '">' + (faceDelArm === k ? 'Tap again to delete' : 'Delete') + '</button></td></tr>';
+    }).join('') : '<tr><td colspan="6"><small>No faces enrolled yet.</small></td></tr>';
+    var TAG = { FACEID: ['ok', 'Face clock-in (no card)'], MATCH: ['ok', 'Match'], NOMATCH: ['bad', 'Not match'], OTHER: ['bad', 'Looks like someone else'], NOFACE: ['none', 'Face not readable'], UNCLEAR: ['none', 'Unclear'] };
+    $('faceLog').innerHTML = L.slice().reverse().slice(0, 60).map(function (o) {
+      var d = new Date(o.ts), t = TAG[o.res] || ['none', o.res];
+      return '<tr><td>' + (o.img ? '<img alt="" src="' + o.img + '">' : '') + '</td><td>' + dayKey(d).slice(5) + ' ' + hms(d).slice(0, 5) + '</td><td>' + esc(o.n) + '</td><td><span class="tag ' + t[0] + '">' + t[1] + '</span></td><td>' +
+        (o.d != null ? o.d.toFixed(2) : '') + '</td><td>' + (o.od != null ? o.od.toFixed(2) + ' ' + esc(o.on) : '') + '</td><td>' + ((o.ms || 0) / 1000).toFixed(1) + '</td></tr>';
+    }).join('') || '<tr><td colspan="7"><small>No results yet. They appear after enrolled people clock in.</small></td></tr>';
     var rows = recent().filter(function (x) { return x.day === dayKey(new Date()); }).reverse().slice(0, 25);
     $('recent').innerHTML = rows.map(function (r) { return '<tr><td>' + esc(r.time) + '</td><td>' + esc(r.name || r.id) + '</td><td>' + (r.ot ? 'OT ' : '') + (r.type === 'IN' ? 'In' : 'Out') + (r.wait ? ' (waiting)' : '') + '</td><td>' + esc(r.flag || '') + '</td></tr>'; }).join('');
+    faceCloudText();
   }
-  $('faces').onclick = function (e) {
-    var id = e.target && e.target.getAttribute('data-del'); if (!id || !confirm('Remove the enrolled face?')) return;
-    var F = faceDb(); delete F.faces[id]; lsSet('faces', F); renderAdmin();
-    post({ action: 'faceDel', id: id }).then(sync).catch(function () { });
+  $('faceList').onclick = function (e) {
+    var id = e.target && e.target.getAttribute('data-del'); if (!id) return;
+    if (faceDelArm !== id) { faceDelArm = id; renderAdmin(); return; }
+    var F = faceDb(); delete F.faces[id]; lsSet('faces', F); faceDelArm = ''; renderAdmin();
+    faceOp('del', id);   // the cloud copy goes too, other tablets follow on their next sync
   };
   $('bSync').onclick = function () { sync(); };
+  $('faceClear').onclick = function () {
+    if (this.textContent !== 'Tap again to clear') { this.textContent = 'Tap again to clear'; return; }
+    this.textContent = 'Clear results'; lsSet('facelog', []); renderAdmin();
+  };
+  $('faceCsv').onclick = function () {
+    var rows = [['date', 'time', 'id', 'name', 'result', 'distance', 'match_line', 'closest_other', 'other_distance', 'self_check', 'seconds']];
+    faceLog().forEach(function (o) { var d = new Date(o.ts); rows.push([dayKey(d), hms(d), o.id, o.n, o.res, o.d != null ? o.d : '', o.thr, o.on || '', o.od != null ? o.od : '', o.sid || '', ((o.ms || 0) / 1000).toFixed(2)]); });
+    var csv = rows.map(function (r) { return r.map(function (v) { v = String(v); return /[",]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(','); }).join('\r\n');
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }));
+    a.download = 'ppa_face_results_' + dayKey(new Date()) + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+  // face distance + live test: boxes on the camera, green = the face that would be checked (biggest, near enough), grey = ignored
+  var faceDistSel = $('faceDistSel'), faceTestOn = false, faceOv = $('faceOv');
+  Object.keys(FACE_DIST).forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = FACE_DIST[k].t; faceDistSel.appendChild(o); });
+  faceDistSel.value = lsGet('facedist', 'M');
+  faceDistSel.onchange = function () { lsSet('facedist', this.value); };
+  function faceTestStop() {
+    if (!faceTestOn) return;
+    faceTestOn = false; faceOv.style.display = 'none'; document.body.classList.remove('ftest');
+    $('faceTest').textContent = '▶ Live test'; $('faceTestInfo').textContent = '';
+    if (!mode) { $('cam').style.display = 'none'; $('btns').style.display = KEY ? '' : 'none'; $('hint').style.display = KEY ? '' : 'none'; keepCam(); }
+  }
+  $('faceTest').onclick = function () {
+    if (faceTestOn) { faceTestStop(); return; }
+    if (busy || mode || enrolling) return;
+    faceTestOn = true; this.textContent = '■ Stop test'; document.body.classList.add('ftest');
+    $('cam').style.display = 'block'; $('btns').style.display = 'none'; $('hint').style.display = 'none'; hideResult(); $('hint').style.display = 'none';
+    $('camTop').textContent = 'Live test — stand where staff will stand'; $('camMsg').textContent = '';
+    faceOv.style.display = 'block'; $('faceTestInfo').textContent = 'Starting…';
+    startCam().then(function () { return loadModels(true); }).then(function () {
+      if (modelsState !== 2) { $('faceTestInfo').textContent = 'Face model did not load. Check the internet.'; return; }
+      faceTestLoop();
+    }).catch(function () { $('faceTestInfo').textContent = 'Camera not available.'; });
+  };
+  function faceTestLoop() {
+    if (!faceTestOn) return;
+    if (mode || busy) { faceTestStop(); return; }
+    if (!stream || video.readyState < 2) { setTimeout(faceTestLoop, 200); return; }
+    lastTouch = Date.now();
+    var c = faceGrab(), D = faceDist0(), t0 = performance.now(), a = [], t1 = 0;
+    if (!c) { setTimeout(faceTestLoop, 200); return; }
+    Promise.resolve(faceapi.detectAllFaces(c, new faceapi.TinyFaceDetectorOptions({ inputSize: D.size, scoreThreshold: 0.4 }))).then(function (r) {
+      a = r || []; t1 = performance.now();
+      return detect(c);
+    }).then(function (r) {
+      if (!faceTestOn) return;
+      var t2 = performance.now(), pick = r && r.detection;
+      // the video is mirrored, boxes are drawn the same way
+      var W = faceOv.clientWidth, H = faceOv.clientHeight, s = Math.max(W / c.width, H / c.height), ox = (W - c.width * s) / 2, oy = (H - c.height * s) / 2;
+      faceOv.width = W; faceOv.height = H;
+      var g = faceOv.getContext('2d'); g.clearRect(0, 0, W, H); g.lineWidth = 4; g.font = 'bold 18px sans-serif';
+      var same = function (d) { return pick && Math.abs(d.box.x - pick.box.x) < 1 && Math.abs(d.box.y - pick.box.y) < 1; };
+      if (pick && !a.some(same)) a.push(pick);   // found only on the brightened copy
+      a.forEach(function (d) {
+        var b = d.box, on = same(d), x = W - (ox + (b.x + b.width) * s), y = oy + b.y * s, pct = Math.round(b.height / c.height * 100);
+        g.strokeStyle = g.fillStyle = on ? '#00e676' : '#9e9e9e';
+        g.strokeRect(x, y, b.width * s, b.height * s);
+        g.fillText(pct + '%' + (on ? '' : (b.height < c.height * D.min ? ' too far' : '')), x + 4, y - 6);
+      });
+      var txt = a.length ? (pick ? '' : 'Face too far (needs ' + Math.round(D.min * 100) + '% of the picture) · ') : 'No face · ';
+      if (r) {
+        var k = faceRank(faceDb().faces, r.descriptor);
+        if (k.best) txt += k.best.n + ' (' + k.best.d.toFixed(2) + ') ' + (facePass(k.best, k.second) ? '✔ would clock in' : '✖ not sure') + ' · ';
+        else txt += 'nobody enrolled yet · ';
+      }
+      txt += 'find ' + ((t1 - t0) / 1000).toFixed(2) + ' s' + (r ? ', check ' + ((t2 - t0) / 1000).toFixed(2) + ' s' : '');
+      $('faceTestInfo').textContent = txt; $('camMsg').textContent = txt;
+      setTimeout(faceTestLoop, 100);
+    }).catch(function () { setTimeout(faceTestLoop, 500); });
+  }
 
   // ---- keep alive, updates ----
   function keepAwake() { try { if (navigator.wakeLock && document.visibilityState === 'visible') navigator.wakeLock.request('screen').catch(function () { }); } catch (e) { } }
@@ -801,17 +1139,20 @@ body.standby #sb{display:flex}
     if (!/^https:/.test(location.protocol)) return;
     fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
       var mm = /var APP_VER = '([^']+)'/.exec(t || '');
+      if (mm && mm[1] !== APP_VER) $('ver').textContent = APP_VER + ' · new version ' + mm[1] + ' found, will update when nobody is clocking';
       if (mm && mm[1] !== APP_VER) { var go = function () { if (!mode && !busy && !flushing && !queue().length && Date.now() - lastTouch > 10000) location.reload(); else setTimeout(go, 15000); }; go(); }
     }).catch(function () { });
   }
   setInterval(checkUpdate, 5 * 60 * 1000); setInterval(sync, 4 * 60 * 1000);
   if ('serviceWorker' in navigator && /^https:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(function () { });
 
+  faceCfgApply(lsGet('facecfg', {}));
   renderAdmin(); tick(); listCams(); net(navigator.onLine !== false); sync();
+  if (document.body.classList.contains('admin')) { loadModels(true); faceOpsFlush(); }
   window.__ppaClock = { clock: clock, sync: sync, queue: queue };   // for tests
 })();
 </script>
-<script>window.HFX_CFG = { header: '.hd', tag: '.tag', brand: 'PPA', delay: 2200, hols: function () { try { return (JSON.parse(localStorage.getItem('ppa_clock_sync')) || {}).hols || {}; } catch (e) { return {}; } } };</script>
+<script>window.HFX_CFG = { header: '.hd', tag: '.tag', brand: 'PPA', delay: 2200, voice: function () { return window.__ppaVoice ? window.__ppaVoice() : null; }, hols: function () { try { return (JSON.parse(localStorage.getItem('ppa_clock_sync')) || {}).hols || {}; } catch (e) { return {}; } } };</script>
 <!-- HOLIDAY FX START (共用模組：PTE 打卡 _tools\clock、PPA 打卡 ppa-clock 兩邊放同一份，改這裡再跑 inject.js；不要直接改頁面裡的這段) -->
 <!-- 2026-10-24 Alan：節日當天版面要不一樣（跟看板網頁一樣）＋打卡節日動畫；史瓦帝尼國定假日都要；PPA、PTE 同步。
      版面：標題列下方換成節日色條、右邊掛彩旗、標語換節日問候（前面加小圖示）、整頁飄雪／彩紙／星光（安靜的節日只有柔光）。
