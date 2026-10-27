@@ -1584,7 +1584,9 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   }
   // 比對結果寫進 Clock Log「Face」欄（10/16 Alan：試用就先上線，HR 篩 Not match 查照片）
   var FACEQ_STORE = 'ppa_clock_faceq_v1', faceFlushing = false;
-  function faceText(o){ return faceText0(o) + (o.sid ? ', face-only ' + o.sid.toLowerCase() : ''); }   // 自我查核結果一起寫進 Face 欄，每天的檢查從試算表算準確率
+  function faceText(o){   // 自我查核結果一起寫進 Face 欄，每天的檢查從試算表算準確率
+    return faceText0(o) + (o.sid ? ', face-only ' + o.sid.toLowerCase() + (o.sid === 'WRONG' || o.sid === 'QUEUE' ? ' (' + o.on + ')' : '') : '');
+  }
   function faceText0(o){
     var d = function(v){ return ' (' + Number(v).toFixed(2) + ')'; };
     if (o.res === 'MATCH') return 'Match' + d(o.d);
@@ -1639,7 +1641,7 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
         Object.keys(F.faces).forEach(function(k){
           if (k === id) return;
           var d = faceMin(q, F.faces[k].d);
-          if (!best || d < best.d) best = { n: F.faces[k].n, d: d };
+          if (!best || d < best.d) best = { id: k, n: F.faces[k].n, d: d };
         });
         if (best){ o.od = +best.d.toFixed(3); o.on = best.n; }
         // 標記只在證據夠強時才說「不像本人」：
@@ -1664,12 +1666,31 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
         // 這樣模型容易混淆的人（例如常被認成 Christian 的幾位）會越來越準
         var box = r.detection.box;
         if (o.d <= FACE_CARD_LEARN_MAX && r.detection.score >= 0.7 && box.height >= c.height * 0.15) faceLearn(id, q, o.d, FACE_CARD_LEARN_MAX);
+        if (o.sid === 'WRONG') o.oid = best.id;
       }
-      var L = faceLog(); L.push(o); if (L.length > 200) L = L.slice(-200);
-      if (!lsSet(FACELOG_STORE, L)){ L = L.slice(-50); lsSet(FACELOG_STORE, L); }
-      renderFace();
-      if (rid) faceSend(rid, faceText(o));
+      // 10/27：10/23 到 10/26 的 5 筆 wrong 全是卡主站在鏡頭外側邊刷卡、鏡頭拍到後面排隊的人（例：Nosipho 刷卡，
+      // 拍到 35 秒後自己打卡的 Zwelethu），臉其實認對了，卻讓每日排程收緊門檻、刷臉變慢。
+      // 所以 wrong 先等一下：被認成的那個人前 3 分鐘或之後 90 秒內在這台平板打卡＝排隊的人，改記 queue（不算認錯）
+      if (o.sid === 'WRONG') faceQueueCheck(o, rid); else faceCheckDone(o, rid);
     }).catch(function(){});
+  }
+  var FACE_QUEUE_BEFORE_MS = 180000, FACE_QUEUE_AFTER_MS = 90000;
+  function faceClockedNear(pid, ts){
+    return recent().some(function(x){ return x.id === pid && x.ts >= ts - FACE_QUEUE_BEFORE_MS && x.ts <= ts + FACE_QUEUE_AFTER_MS; });
+  }
+  function faceQueueCheck(o, rid){
+    var t0 = Date.now();
+    (function poll(){
+      if (faceClockedNear(o.oid, o.ts)){ o.sid = 'QUEUE'; faceCheckDone(o, rid); return; }
+      if (Date.now() - t0 >= FACE_QUEUE_AFTER_MS){ faceCheckDone(o, rid); return; }
+      setTimeout(poll, 5000);
+    })();
+  }
+  function faceCheckDone(o, rid){
+    var L = faceLog(); L.push(o); if (L.length > 200) L = L.slice(-200);
+    if (!lsSet(FACELOG_STORE, L)){ L = L.slice(-50); lsSet(FACELOG_STORE, L); }
+    renderFace();
+    if (rid) faceSend(rid, faceText(o));
   }
 
   // 刷臉打卡（Alan 10/17：沒掃卡、掃臉也能過，只是久一點）：按了上班／下班後，掃卡的同時在背景認臉；
@@ -2086,7 +2107,7 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   // 自動更新（Alan 10/16）：每 5 分鐘、以及 App 切回前景時，看 GitHub 上的版本號跟這頁一不一樣；
   // 不一樣就等沒人在打卡（沒在刷卡、沒在存、鏡頭關著、結果訊息已顯示超過 10 秒）再重新整理。
   // 斷網佇列存在平板裡，重新整理不會掉資料。每次上傳新版要把 APP_VER 改掉，平板才會換。
-  var APP_VER = '2026-10-25-2';
+  var APP_VER = '2026-10-27-1';
   var newVer = '';
   // ?setup 顯示目前版本，發現新版還沒換時也寫出來，一眼確認平板有沒有更新
   document.getElementById('appVer').textContent = APP_VER;
