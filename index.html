@@ -1047,10 +1047,10 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   function lastFor(id, skipRid){
     var S = lsGet(SYNC_STORE, null), best = null;
     var l = S && S.last && S.last[id];
-    if (l) best = { type: l.t, ts: l.ts, time: l.tm };
+    if (l) best = { type: l.t, ts: l.ts, time: l.tm, ot: l.o };
     recent().forEach(function(r){
       if (r.id !== id || !r.ts || r.rid === skipRid || /^REJECTED/.test(r.flag || '')) return;
-      if (!best || r.ts >= best.ts) best = { type: r.type, ts: r.ts, time: r.time };
+      if (!best || r.ts >= best.ts) best = { type: r.type, ts: r.ts, time: r.time, ot: !!r.ot };
     });
     return best;
   }
@@ -1058,6 +1058,29 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
     if (type === 'IN') return (last && last.type === 'IN') ? 'NO_OUT' : '';
     if (!last || last.type === 'OUT' || ts - last.ts > STALE_MS) return 'NO_IN';
     return '';
+  }
+
+  // Rule (2026-11-04): no second Clock In while the last record is still an open IN. It is BLOCKED, not just flagged.
+  // An IN older than STALE_MS counts as a missed Clock Out: the new Clock In is allowed and flagged NO_OUT by flagFor.
+  // Clock out without any Clock In is still recorded with the NO_IN flag (refusing it would lose the real leaving time).
+  // last.ot is only known for records made on this tablet (and for the server if sync sends "o"); when unknown the OT/normal check is skipped.
+  function blockFor(type, last, ts, ot){
+    if (!last || last.type !== 'IN' || ts - last.ts > STALE_MS) return '';
+    if (type === 'IN') return 'DOUBLE_IN';
+    if (last.ot !== undefined && !!last.ot !== !!ot) return last.ot ? 'WRONG_OUT_OT' : 'WRONG_OUT_NORMAL';
+    return '';
+  }
+  function showBlocked(code, who, last, redo){
+    failSound();
+    var sub = {
+      DOUBLE_IN: 'You clocked in at ' + last.time + ' and have not clocked out. Please Clock Out first.',
+      WRONG_OUT_OT: 'You are in overtime since ' + last.time + '. Please use OT out.',
+      WRONG_OUT_NORMAL: 'You are in a normal shift since ' + last.time + '. Please use Clock out, not OT out.'
+    }[code];
+    var title = code === 'DOUBLE_IN' ? '✖ Not clocked: already clocked in' : '✖ Not clocked: wrong button';
+    var note = code === 'DOUBLE_IN' ? 'If you forgot to clock out earlier, tell your supervisor.' : '';
+    var action = code === 'DOUBLE_IN' && redo ? { label: 'I meant ' + (clockOT ? 'OT OUT' : 'CLOCK OUT'), ms: SWITCH_MS, fn: redo } : null;
+    show('bad', title, who, sub, note, action);
   }
 
   // 平板當場判斷：存進佇列、馬上顯示結果，背景再上傳
@@ -1068,6 +1091,12 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
       busy = false; beep(440, 150);
       show('warn', 'Already clocked', name,
         'Your ' + (last.type === 'IN' ? 'Clock In' : 'Clock Out') + ' at ' + last.time + ' is recorded. Scans within 60 seconds are ignored.');
+      afterResult(); return;
+    }
+    var bk = blockFor(type, last, ts, clockOT);
+    if (bk){
+      busy = false;
+      showBlocked(bk, name + ' ・ ' + id, last, function(){ busy = true; localClock(card, 'OUT', id, name, photo, '', face); });
       afterResult(); return;
     }
     var flag = flagFor(type, last, ts), t = new Date(ts);
@@ -1090,6 +1119,12 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   // 等後端判斷（沒同步資料、新卡）
   function serverClock(card, type, photo, rid){
     var ts = Date.now();
+    var id0 = card ? card.slice(0, 9) : '', last0 = id0 ? lastFor(id0) : null, bk0 = last0 ? blockFor(type, last0, ts, clockOT) : '';
+    if (bk0){
+      busy = false;
+      showBlocked(bk0, id0, last0, function(){ busy = true; serverClock(card, 'OUT', photo, ''); });
+      afterResult(); return;
+    }
     rid = rid || uid();
     showWaiting('', 'Saving…', 'Please hold on');
     afterResult();
@@ -1101,6 +1136,11 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
           beep(440, 150);
           show('warn', 'Already clocked', res.name || '',
             'Your ' + (res.lastType === 'IN' ? 'Clock In' : 'Clock Out') + ' at ' + res.lastTime + ' is recorded. Scans within 60 seconds are ignored.');
+        } else if (res.code === 'DOUBLE_IN'){
+          failSound();
+          show('bad', '✖ Not clocked: already clocked in', res.name || res.id || '',
+            'You clocked in at ' + (res.lastTime || 'earlier') + ' and have not clocked out. Please Clock Out first.',
+            'If you forgot to clock out earlier, tell your supervisor.');
         } else {
           failSound();
           var why = { OLDCARD: ['✖ Not clocked: old card', 'This card was replaced. Please ask HR for your new card.'],
@@ -2107,7 +2147,7 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   // 自動更新（Alan 10/16）：每 5 分鐘、以及 App 切回前景時，看 GitHub 上的版本號跟這頁一不一樣；
   // 不一樣就等沒人在打卡（沒在刷卡、沒在存、鏡頭關著、結果訊息已顯示超過 10 秒）再重新整理。
   // 斷網佇列存在平板裡，重新整理不會掉資料。每次上傳新版要把 APP_VER 改掉，平板才會換。
-  var APP_VER = '2026-10-27-1';
+  var APP_VER = '2026-11-04-1';
   var newVer = '';
   // ?setup 顯示目前版本，發現新版還沒換時也寫出來，一眼確認平板有沒有更新
   document.getElementById('appVer').textContent = APP_VER;
