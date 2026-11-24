@@ -205,6 +205,8 @@ body.asleep #sleep{display:flex}
 @keyframes pulse{50%{opacity:.35}}
 /* 省電：畫面變暗或還沒設定時，停掉卡片動畫 */
 body.asleep .halo::before,body.asleep .halo::after,body.nokey .halo::before,body.nokey .halo::after{animation-play-state:paused}
+body.asleep *{animation-play-state:paused!important}   /* power save: nothing animates behind the black clock */
+body.asleep #sleep .tap{animation:none;opacity:.8}
 @media (prefers-reduced-motion:reduce){.halo::before,.halo::after{animation:none}}
 body.nokey main,body.nokey footer{display:none}
 body.nokey #setupMsg{display:block}
@@ -632,6 +634,13 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   var NET_TIMEOUT_MS = 25000;      // Google 後端閒置後第一次可能要 10 秒以上
   var WARM_MS = 4 * 60 * 1000;     // 每 4 分鐘連一下後端，讓打卡時回應快
   var SLEEP_MS = 30000;            // Alan 10/16：沒人用 30 秒變暗，點一下亮
+  // POWER SAVE (2026-11-24): after DEEP_MS of nobody around, release the screen wake lock (the tablet's own screen-off then applies),
+  // and while the black clock screen is showing run the timers slowly. Switch off with ?nopowersave. Any tap wakes everything back up.
+  var DEEP_MS = 20 * 60 * 1000;
+  var POWER_SAVE = !/[?&]nopowersave\b/.test(location.search);
+  if (/[?&]pstest\b/.test(location.search)) { SLEEP_MS = 4000; DEEP_MS = 12000; }   // test mode: short timers
+  var wl = null, deepSleep = false, lastUpdChk = 0, tickT = 0;
+  if (/[?&]pstest/.test(location.search)) window.__ps = function(){ return { wl: !!wl, deep: deepSleep, asleep: document.body.classList.contains('asleep'), ticks: window.__ticks || 0 }; };
   var CARD_RE = /^PPA\d{6}-[A-Z0-9]{4}$/;
   var FLAG_TEXT = {
     NO_OUT: 'Your last Clock In has no Clock Out. Please tell your supervisor.',
@@ -758,6 +767,13 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   /* ---------- 時鐘＋自動關鏡頭 ---------- */
   function tick(){
     var d = new Date();
+    if (POWER_SAVE && document.body.classList.contains('asleep') && !mode && !stream && !busy && !enrolling){
+      // asleep: only keep the black clock right; skip the hidden page work
+      document.getElementById('sClock').textContent = hms(d).slice(0, 5);
+      document.getElementById('sDate').textContent = ['SUN','MON','TUE','WED','THU','FRI','SAT'][d.getDay()] + ', ' + dayKey(d);
+      if (!deepSleep && Date.now() - lastActive > DEEP_MS) enterDeep();
+      return;
+    }
     document.getElementById('clock').textContent = hms(d);
     document.getElementById('date').textContent = ['SUN','MON','TUE','WED','THU','FRI','SAT'][d.getDay()] + ', ' + dayKey(d);
     // 上班鈕小字：現在時間＋照時段問候（晚班就是 Good evening）
@@ -799,14 +815,23 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
         now - lastActive > SLEEP_MS && now - lastShowAt > SLEEP_MS) b.add('asleep');
   }
   var lastActive = Date.now();
-  document.addEventListener('pointerdown', function(){ lastActive = Date.now(); }, true);
+  document.addEventListener('pointerdown', function(){ lastActive = Date.now(); if (deepSleep) leaveDeep(); tickLoop(); }, true);
   // 暗的時候這一下只負責叫醒，不會順便按到底下的上班／下班
   document.getElementById('sleep').addEventListener('click', function(e){
     e.preventDefault(); e.stopPropagation();
     lastActive = Date.now();
     document.body.classList.remove('asleep');
+    tickLoop();
   });
-  setInterval(tick, 1000); tick();
+  // 1 s normally; while asleep wake only about every 15 s (and exactly at the minute change)
+  function tickLoop(){
+    clearTimeout(tickT);
+    window.__ticks = (window.__ticks || 0) + 1;
+    try { tick(); } catch(e){}
+    var asleepNow = POWER_SAVE && document.body.classList.contains('asleep') && !mode && !stream && !busy;
+    tickT = setTimeout(tickLoop, asleepNow ? Math.min(15000, 60000 - Date.now() % 60000 + 100) : 1000);
+  }
+  tickLoop();
 
   /* ---------- 聲音 ---------- */
   var actx = null;
@@ -2135,8 +2160,14 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
 
   // 打卡機不要自己關螢幕
   function keepAwake(){
-    if (navigator.wakeLock && document.visibilityState === 'visible') navigator.wakeLock.request('screen').catch(function(){});
+    if (deepSleep || wl || !navigator.wakeLock || document.visibilityState !== 'visible') return;
+    navigator.wakeLock.request('screen').then(function(x){
+      wl = x; x.addEventListener('release', function(){ if (wl === x) wl = null; });
+      if (deepSleep) x.release();
+    }).catch(function(){});
   }
+  function enterDeep(){ deepSleep = true; if (wl) { try { wl.release(); } catch(e){} } }
+  function leaveDeep(){ if (!deepSleep) return; deepSleep = false; keepAwake(); sync(); }
   keepAwake();
   document.addEventListener('visibilitychange', keepAwake);
   // 省電：App 切到背景（例如有人按了 Home 鍵）就關鏡頭，不在背景空轉
@@ -2147,12 +2178,14 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   // 自動更新（Alan 10/16）：每 5 分鐘、以及 App 切回前景時，看 GitHub 上的版本號跟這頁一不一樣；
   // 不一樣就等沒人在打卡（沒在刷卡、沒在存、鏡頭關著、結果訊息已顯示超過 10 秒）再重新整理。
   // 斷網佇列存在平板裡，重新整理不會掉資料。每次上傳新版要把 APP_VER 改掉，平板才會換。
-  var APP_VER = '2026-11-04-1';
+  var APP_VER = '2026-11-24-1';
   var newVer = '';
   // ?setup 顯示目前版本，發現新版還沒換時也寫出來，一眼確認平板有沒有更新
   document.getElementById('appVer').textContent = APP_VER;
   function checkUpdate(){
     if (!/^https:/.test(location.protocol)) return;
+    if (POWER_SAVE && deepSleep && Date.now() - lastUpdChk < 60 * 60 * 1000) return;   // deep sleep: check for a new version once an hour
+    lastUpdChk = Date.now();
     fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' }).then(function(r){ return r.ok ? r.text() : ''; }).then(function(t){
       var m = /var APP_VER = '([^']+)'/.exec(t || '');
       if (m && m[1] !== APP_VER) {
@@ -2174,7 +2207,7 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
 
   render();
   sync();
-  setInterval(function(){ if (!busy && document.visibilityState === 'visible') sync(); }, WARM_MS);   // 背景時不同步，回到前景再同步
+  setInterval(function(){ if (!busy && !deepSleep && document.visibilityState === 'visible') sync(); }, WARM_MS);   // 背景時不同步，回到前景再同步
   setTimeout(checkUpdate, 20000);
   if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) listCams().catch(function(){});
 })();
