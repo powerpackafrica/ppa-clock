@@ -555,6 +555,7 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   </div>
   <div class="note">Settings are saved on this tablet. Open the normal address (without ?setup) for staff.</div>
   <div class="note">Page version <b id="appVer"></b></div>
+  <div class="note">Battery <b id="battState">checking…</b></div>
 </section>
 <section class="panel admin-only" id="facePanel">
   <h2>Face check trial</h2>
@@ -1604,8 +1605,11 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   // face-api 回傳的不是完整的 Promise（沒有 .catch），包一層
   function faceDetect(src, loose, noMin){
     var o = loose ? { inputSize: 416, scoreThreshold: 0.3 } : { inputSize: faceDist0().size, scoreThreshold: 0.5 };
-    var det = null, srcD = src;
+    var det = null, srcD = src, nBig = 0;
+    // 11/25：數畫面裡有幾張看得清楚的臉（臉高 ≥ 10%），學習只在畫面裡只有一張臉時才做
+    var cnt = function(a){ nBig = 0; (a || []).forEach(function(d){ if (d.box.height / src.height >= 0.1) nBig++; }); };
     return Promise.resolve(faceapi.detectAllFaces(src, new faceapi.TinyFaceDetectorOptions(o))).then(function(a){
+      cnt(a);
       det = facePick(a, src, noMin);
       if (det || loose) return a;
       // 10/20 Alan：膚色深的同事刷臉特別慢（比對距離其實比較好，是光線暗時找不到臉）。
@@ -1613,7 +1617,7 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
       var e = document.createElement('canvas'); e.width = src.width; e.height = src.height;
       var g = e.getContext('2d'); g.filter = 'brightness(1.6) contrast(1.2)'; g.drawImage(src, 0, 0);
       return Promise.resolve(faceapi.detectAllFaces(e, new faceapi.TinyFaceDetectorOptions({ inputSize: o.inputSize, scoreThreshold: 0.4 })))
-        .then(function(b){ det = facePick(b, src, noMin); if (det) srcD = e; return b; });
+        .then(function(b){ cnt(b); det = facePick(b, src, noMin); if (det) srcD = e; return b; });
     }).then(function(){
       if (!det) return null;
       return Promise.resolve(faceapi.extractFaces(srcD, [det])).then(function(f){
@@ -1622,7 +1626,7 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
         return faceapi.extractFaces(srcD, [lm.shiftBy(det.box.x, det.box.y).align(null, { useDlibAlignment: true })]);
       }).then(function(f){
         return faceapi.computeFaceDescriptor(f[0]);
-      }).then(function(desc){ return { detection: det, descriptor: desc }; });
+      }).then(function(desc){ return { detection: det, descriptor: desc, nFaces: nBig }; });
     });
   }
   // 打卡比對：先用快的找臉，找不到再放寬找一次（範例照片測試 12 張找不到的降到 1 張）
@@ -1731,8 +1735,9 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
         o.img = faceThumb(c, r.detection.box);
         // 自我訓練：有卡就確定是本人。臉夠清楚（偵測分數 ≥ 0.7、臉佔畫面高 ≥ 15%）就學進去，連現在認不太出來的也學，
         // 這樣模型容易混淆的人（例如常被認成 Christian 的幾位）會越來越準
-        var box = r.detection.box;
-        if (o.d <= FACE_CARD_LEARN_MAX && r.detection.score >= 0.7 && box.height >= c.height * 0.15) faceLearn(id, q, o.d, FACE_CARD_LEARN_MAX);
+        // 11/25 Alan「以卡為主、臉為輔，卡對了再拍臉學習」，學得更嚴：畫面裡只有一張臉、臉高 22% 到 75%、偵測分數 ≥ 0.8、本人是最像的
+        var box = r.detection.box, hH = box.height / c.height;
+        if (faceCardLearnOk(r, hH, o)) faceLearn(id, q, o.d, FACE_CARD_LEARN_MAX);
         if (o.sid === 'WRONG') o.oid = best.id;
       }
       // 10/27：10/23 到 10/26 的 5 筆 wrong 全是卡主站在鏡頭外側邊刷卡、鏡頭拍到後面排隊的人（例：Nosipho 刷卡，
@@ -1766,8 +1771,25 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   var faceIdGen = 0, faceTrying = false, faceIdT0 = 0, faceIdN = 0, faceIdNF = 0, faceIdW = 0, faceIdL = 0, faceIdSecond = 0, faceIdAvg = false, faceLast = null, faceBest = null;
   // 自動學習（10/21）：很有把握認出來（或有卡證明是本人）、但這張臉跟已存的樣本有點不同（光線、角度、髮型），就多存一組。
   // 登錄時的前 5 組永遠保留，學到的最多再存 5 組（後端上限 10 組），新的換掉最舊的；同一人 12 小時最多學一次，會同步到雲端
-  var FACE_LEARN_MIN = 0.2, FACE_LEARN_MAX = 0.42, FACE_LEARN_GAP = 0.15, FACE_KEEP = 5, FACE_MAX_SAMPLES = 10;
-  var FACE_CARD_LEARN_MAX = 0.55;   // 有卡證明身分時可以學比較不像的臉
+  // 11/25 Alan：只有刷卡成功才學（刷臉打卡不學）；學到的最多 3 組（共 8 組），新的換掉最舊的
+  var FACE_LEARN_MIN = 0.2, FACE_LEARN_MAX = 0.42, FACE_LEARN_GAP = 0.15, FACE_KEEP = 5, FACE_MAX_SAMPLES = 8;
+  var FACE_CARD_LEARN_MAX = 0.50;   // 有卡證明身分時可以學比較不像的臉（11/25 從 0.55 收到 0.50）
+  var FACE_LEARN_SAFE = 0.10;       // 新樣本要比最像的別人至少近這麼多才學
+  var FACE_LEARN_SCORE = 0.8, FACE_LEARN_HMIN = 0.22, FACE_LEARN_HMAX = 0.75;
+  function faceCardLearnOk(r, hH, o){
+    return !!r && r.nFaces === 1 && r.detection.score >= FACE_LEARN_SCORE && hH >= FACE_LEARN_HMIN && hH <= FACE_LEARN_HMAX
+      && o.top1 && o.d <= FACE_CARD_LEARN_MAX;
+  }
+  // 每人超過上限的（舊版最多存 10 組）：留登錄時的前 5 組＋最近學到的，多的刪掉並同步雲端
+  function faceTrimAll(){
+    var F = faceDb(), ids = [];
+    Object.keys(F.faces).forEach(function(id){
+      var f = F.faces[id];
+      if (f && f.d && f.d.length > FACE_MAX_SAMPLES){ f.d = f.d.slice(0, FACE_KEEP).concat(f.d.slice(-(FACE_MAX_SAMPLES - FACE_KEEP))); ids.push(id); }
+    });
+    if (ids.length && lsSet(FACE_STORE, F)) ids.forEach(function(id){ faceOp('save', id); });
+    return ids;
+  }
   var FACE_LEARN_COOLDOWN_H = 12, FACE_RETRY_MS = 50, FACE_AVG_N = 3, FACE_SIZE = 0;
   // 遠端微調（10/22 Alan：「給你權限，自我學習、自我精進，看每天要怎麼調整才能越來越快」）：
   // 每天的自我檢查可以在後端 Script Properties 的 FACE_CFG 改這些數字，平板同步時套用，不用改程式。
@@ -1789,8 +1811,12 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
     if (d < FACE_LEARN_MIN || d > (max || FACE_LEARN_MAX)) return;   // 太像＝已經有了；太不像＝不確定，不學
     var F = faceDb(), f = F.faces[id];
     if (!f || (f.lt && Date.now() - f.lt < FACE_LEARN_COOLDOWN_H * 3600e3)) return;
+    // 跟 PTE 一樣（PTE 10/29、11/04）：①跟本人登錄時的前 5 組也要夠像；②比任何別人都明顯更像本人，否則不學（避免學到排隊的人）
+    if (faceMin(desc, f.d.slice(0, FACE_KEEP)) > (max || FACE_LEARN_MAX)) return;
+    var own = faceMin(desc, f.d), clash = Object.keys(F.faces).some(function(k){ return k !== id && faceMin(desc, F.faces[k].d) < own + FACE_LEARN_SAFE; });
+    if (clash) return;
     var v = Array.prototype.map.call(desc, function(x){ return +x.toFixed(4); });
-    if (f.d.length >= FACE_MAX_SAMPLES) f.d.splice(FACE_KEEP, 1);
+    while (f.d.length >= FACE_MAX_SAMPLES) f.d.splice(FACE_KEEP, 1);
     f.d.push(v); f.lt = Date.now();
     if (!lsSet(FACE_STORE, F)) return;
     faceOp('save', id);
@@ -1840,7 +1866,7 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
       }
       if (pass(best, second)){
         faceIdSecond = second ? second.d : 0; faceIdAvg = avg;
-        if (!second || second.d - best.d >= FACE_LEARN_GAP) faceLearn(best.id, desc, best.d);
+        // 11/25 Alan：刷臉打卡不再學（只有刷卡證明身分才學）
         var L = faceLog();
         L.push({ ts: Date.now(), id: best.id, n: best.n, ms: Math.round(performance.now() - faceIdT0), thr: FACE_ID_THR, res: 'FACEID',   // 從按鈕到認出來的總時間
                  d: +best.d.toFixed(3), od: second ? +second.d.toFixed(3) : null, on: second ? second.n : '', img: faceThumb(c, r.detection.box), avg: avg });
@@ -2058,6 +2084,7 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
     var q = lsGet(FACEOPS_STORE, []);
     if (!q.length){
       if (faceVerWanted && faceVerWanted !== faceDb().ver) faceLoadCloud();
+      else if (faceVerWanted) faceTrimAll();   // 跟雲端一致時才整理，超過 8 組的排進佇列上傳
       faceCloudText(); return;
     }
     var it = q[0], F = faceDb(), body;
@@ -2180,10 +2207,24 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   // 自動更新（Alan 10/16）：每 5 分鐘、以及 App 切回前景時，看 GitHub 上的版本號跟這頁一不一樣；
   // 不一樣就等沒人在打卡（沒在刷卡、沒在存、鏡頭關著、結果訊息已顯示超過 10 秒）再重新整理。
   // 斷網佇列存在平板裡，重新整理不會掉資料。每次上傳新版要把 APP_VER 改掉，平板才會換。
-  var APP_VER = '2026-11-24-1d';
+  var APP_VER = '2026-11-25-2d';
   var newVer = '';
   // ?setup 顯示目前版本，發現新版還沒換時也寫出來，一眼確認平板有沒有更新
   document.getElementById('appVer').textContent = APP_VER;
+  // ?setup shows this tablet's battery. Event driven (no timer), nothing is sent to the server.
+  (function(){
+    var el = document.getElementById('battState');
+    if (!navigator.getBattery){ el.textContent = 'not available in this browser'; return; }
+    navigator.getBattery().then(function(b){
+      function showBatt(){
+        var d = new Date();
+        el.textContent = Math.round(b.level * 100) + '% ・ ' + (b.charging ? 'charging (plugged in)' : 'on battery') + ' ・ read ' + hms(d).slice(0, 5);
+      }
+      b.addEventListener('levelchange', showBatt); b.addEventListener('chargingchange', showBatt);
+      document.addEventListener('visibilitychange', showBatt);
+      showBatt();
+    }).catch(function(){ el.textContent = 'not available'; });
+  })();
   function checkUpdate(){
     if (!/^https:/.test(location.protocol)) return;
     if (POWER_SAVE && deepSleep && Date.now() - lastUpdChk < 60 * 60 * 1000) return;   // deep sleep: check for a new version once an hour
