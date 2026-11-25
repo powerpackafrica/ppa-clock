@@ -553,6 +553,7 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   </div>
   <div class="note">Settings are saved on this tablet. Open the normal address (without ?setup) for staff.</div>
   <div class="note">Page version <b id="appVer"></b></div>
+  <div class="note">Battery <b id="battState">checking…</b></div>
 </section>
 <section class="panel admin-only" id="facePanel">
   <h2>Face check trial</h2>
@@ -2204,10 +2205,24 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   // 自動更新（Alan 10/16）：每 5 分鐘、以及 App 切回前景時，看 GitHub 上的版本號跟這頁一不一樣；
   // 不一樣就等沒人在打卡（沒在刷卡、沒在存、鏡頭關著、結果訊息已顯示超過 10 秒）再重新整理。
   // 斷網佇列存在平板裡，重新整理不會掉資料。每次上傳新版要把 APP_VER 改掉，平板才會換。
-  var APP_VER = '2026-11-25-1';
+  var APP_VER = '2026-11-25-2';
   var newVer = '';
   // ?setup 顯示目前版本，發現新版還沒換時也寫出來，一眼確認平板有沒有更新
   document.getElementById('appVer').textContent = APP_VER;
+  // ?setup shows this tablet's battery. Event driven (no timer), nothing is sent to the server.
+  (function(){
+    var el = document.getElementById('battState');
+    if (!navigator.getBattery){ el.textContent = 'not available in this browser'; return; }
+    navigator.getBattery().then(function(b){
+      function showBatt(){
+        var d = new Date();
+        el.textContent = Math.round(b.level * 100) + '% ・ ' + (b.charging ? 'charging (plugged in)' : 'on battery') + ' ・ read ' + hms(d).slice(0, 5);
+      }
+      b.addEventListener('levelchange', showBatt); b.addEventListener('chargingchange', showBatt);
+      document.addEventListener('visibilitychange', showBatt);
+      showBatt();
+    }).catch(function(){ el.textContent = 'not available'; });
+  })();
   function checkUpdate(){
     if (!/^https:/.test(location.protocol)) return;
     if (POWER_SAVE && deepSleep && Date.now() - lastUpdChk < 60 * 60 * 1000) return;   // deep sleep: check for a new version once an hour
