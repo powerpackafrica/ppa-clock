@@ -641,10 +641,12 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   // and while the black clock screen is showing run the timers slowly. Switch off with ?nopowersave. Any tap wakes everything back up.
   var DEEP_MS = 20 * 60 * 1000;
   var POWER_SAVE = !/[?&]nopowersave\b/.test(location.search);
-  if (/[?&]pstest\b/.test(location.search)) { SLEEP_MS = 4000; DEEP_MS = 12000; }   // test mode: short timers
+  if (/[?&]pstest\b/.test(location.search)) { SLEEP_MS = 4000; DEEP_MS = 12000; WARM_MS = 5000; }   // test mode: short timers
   var wl = null, deepSleep = false, lastUpdChk = 0, tickT = 0;
+  var DEEP_SYNC_MS = 3 * 60 * 60 * 1000;   // deep sleep: refresh the saved card list when it is older than this (must stay well under SYNC_MAX_AGE)
+  if (/[?&]pstest\b/.test(location.search)) DEEP_SYNC_MS = 20000;
   if (/[?&]pstest/.test(location.search)) window.__ps = function(){ return { wl: !!wl, deep: deepSleep, asleep: document.body.classList.contains('asleep'), ticks: window.__ticks || 0 }; };
-  var CARD_RE = /^PPA\d{6}-[A-Z0-9]{4}$/;
+  var CARD_RE = /^(PPA\d{6}|PPC\d{4})-[A-Z0-9]{4}$/;   // PPC 臨時工 2026-11-26
   var FLAG_TEXT = {
     NO_OUT: 'Your last Clock In has no Clock Out. Please tell your supervisor.',
     NO_IN: 'We have no Clock In for you. Please tell your supervisor.'
@@ -2207,7 +2209,7 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
   // 自動更新（Alan 10/16）：每 5 分鐘、以及 App 切回前景時，看 GitHub 上的版本號跟這頁一不一樣；
   // 不一樣就等沒人在打卡（沒在刷卡、沒在存、鏡頭關著、結果訊息已顯示超過 10 秒）再重新整理。
   // 斷網佇列存在平板裡，重新整理不會掉資料。每次上傳新版要把 APP_VER 改掉，平板才會換。
-  var APP_VER = '2026-11-25-2d';
+  var APP_VER = '2026-11-26-2d';
   var newVer = '';
   // ?setup 顯示目前版本，發現新版還沒換時也寫出來，一眼確認平板有沒有更新
   document.getElementById('appVer').textContent = APP_VER;
@@ -2250,7 +2252,12 @@ footer .sig{font:italic 600 clamp(16px,2.6vw,28px) "Segoe Script","Brush Script 
 
   render();
   sync();
-  setInterval(function(){ if (!busy && !deepSleep && document.visibilityState === 'visible') sync(); }, WARM_MS);   // 背景時不同步，回到前景再同步
+  setInterval(function(){
+    if (busy) return;
+    // deep sleep: only refresh an old card list (retries until it works), so a morning without internet still knows the cards
+    if (deepSleep){ var sd = lsGet(SYNC_STORE, null); if (!sd || Date.now() - sd.at > DEEP_SYNC_MS) sync(); return; }
+    if (document.visibilityState === 'visible') sync();   // 背景時不同步，回到前景再同步
+  }, WARM_MS);
   setTimeout(checkUpdate, 20000);
   if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) listCams().catch(function(){});
 })();
